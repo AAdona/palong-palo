@@ -1050,6 +1050,11 @@ input[type='number'] {
   gap: 8px;
   font-size: var(--text-sm);
   box-shadow: var(--shadow-popover);
+  animation:
+    rise var(--motion-standard) var(--ease-emphasized) both,
+    toast-gone 200ms ease 3s forwards;
+}
+.toast.loading {
   animation: rise var(--motion-standard) var(--ease-emphasized) both;
 }
 .toast button {
@@ -1742,9 +1747,12 @@ input[type='time'] {
 }
 
 .toast.out {
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 180ms var(--ease-standard),
-    transform 180ms var(--ease-standard);
+  animation: toast-gone 180ms ease forwards;
+}
+@keyframes toast-gone {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+    visibility: hidden;
+  }
 }
