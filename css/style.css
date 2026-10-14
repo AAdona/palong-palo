@@ -1050,6 +1050,11 @@ input[type='number'] {
   gap: 8px;
   font-size: var(--text-sm);
   box-shadow: var(--shadow-popover);
+  animation:
+    rise var(--motion-standard) var(--ease-emphasized) both,
+    toast-gone 200ms ease 3s forwards;
+}
+.toast.loading {
   animation: rise var(--motion-standard) var(--ease-emphasized) both;
 }
 .toast button {
@@ -1729,4 +1734,25 @@ input[type='time'] {
 }
 .sbar.off {
   opacity: 0.55;
+}
+
+/* ---------- header fit ---------- */
+.brand span {
+  white-space: nowrap;
+}
+@media (max-width: 430px) {
+  .top.sched .brand span {
+    display: none;
+  }
+}
+
+.toast.out {
+  animation: toast-gone 180ms ease forwards;
+}
+@keyframes toast-gone {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+    visibility: hidden;
+  }
 }

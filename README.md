@@ -9,6 +9,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Roster:** tap to pick who is attending, add guests, remove names.
 - **Courts:** 1 or 2 courts. Each court has its own length. A shorter court joins later and finishes together with the longer one.
 - **Match length:** set minutes per match (default 20). Games are to 15, capped at 17, best of 3.
+- **No waiting between courts:** when one court finishes first, picking its winner starts that court's next match right away with players who are free. A toast says who is up, with Undo.
 - **Fair match-ups:** everyone faces everyone as much as possible, with opponents prioritised over partners. Rest and play time is spread evenly.
 - **Edit any round:** tap a player to rest them, swap them with someone else, or take them out for the day. Rounds after the change rebuild.
 - **Court controls:** skip a court for a single round, close a court from now on, or reopen it.

@@ -281,7 +281,7 @@ function matchText(m) {
 function matchCard(m, r, cur, idx, canClose) {
   let st;
   if (m.done) st = ['done', 'Done'];
-  else if (r === cur) st = ['now', 'Playing now'];
+  else if (r === cur || m.live) st = ['now', 'Playing now'];
   else if (r < cur) st = ['', 'Not logged'];
   else st = ['', r === cur + 1 ? 'Up next' : 'Later'];
   const pos = { a: ['26.4%', '73.6%'] };
@@ -400,7 +400,7 @@ function scheduleHTML() {
   }
   const avail = courtsFor(S, r),
     closed = [];
-  for (let c = 1; c <= S.courts; c++) {
+  for (let c = 1; c <= Math.max(S.courts, 2); c++) {
     if (avail.includes(c)) continue;
     let first = -1;
     for (let q = r + 1; q < S.rounds.length; q++)
@@ -422,15 +422,32 @@ function scheduleHTML() {
             '">' +
             I.plus.replace('<svg', '<svg style="width:14px;height:14px"') +
             'Open</button>'
-          : r === cur && first < 0
+          : r === cur
             ? '<button class="btn sm quiet" data-act="court-open" data-c="' +
               c +
               '">' +
               I.plus.replace('<svg', '<svg style="width:14px;height:14px"') +
-              'Open</button>'
+              (first >= 0 ? 'Open now' : 'Open') +
+              '</button>'
             : ''),
     );
   }
+  S.rounds.forEach((x, q) => {
+    if (q <= r) return;
+    x.matches.forEach((m) => {
+      if (m.live && !m.done)
+        closed.push(
+          '<span>Court ' +
+            m.court +
+            ' is playing: ' +
+            esc(matchText(m)) +
+            '</span>' +
+            '<button class="btn sm quiet" data-act="goto" data-r="' +
+            q +
+            '">Show</button>',
+        );
+    });
+  });
   const cnote = closed.length
     ? '<div class="note courtnote">' +
       closed.map((x) => '<div class="cnrow">' + x + '</div>').join('') +
@@ -478,7 +495,7 @@ function scheduleHTML() {
   }
   return (
     '<div class="shell">' +
-    '<header class="top"><div class="brand">' +
+    '<header class="top sched"><div class="brand">' +
     I.brand +
     '<span>Palong Palo</span></div><div class="actions">' +
     '<button class="btn quiet icon" data-act="full" aria-label="Full schedule" title="Full schedule">' +
@@ -916,36 +933,11 @@ function sheetHTML() {
   if (sh.type === 'stats') return statsSheet();
   return '';
 }
-function toastHTML() {
-  const t = App.toast;
-  if (!t) return '';
-  if (t.loading)
-    return (
-      '<div class="toast loading" role="status" aria-live="polite"><span class="spin"></span><span>' +
-      esc(t.msg) +
-      '…</span></div>'
-    );
-  return (
-    '<div class="toast" role="status"' +
-    (t.shown ? ' style="animation:none"' : '') +
-    '><span>' +
-    esc(t.msg) +
-    '</span>' +
-    (t.undo ? '<button data-act="undo">Undo</button>' : '') +
-    '</div>'
-  );
-}
-
 /* ---------- render ---------- */
-let toastTimer = null;
 function render() {
   const hadSheet = !!$app.querySelector('.sheet');
   $app.innerHTML =
-    BG_COURT +
-    (App.view === 'setup' || !App.S ? setupHTML() : scheduleHTML()) +
-    sheetHTML() +
-    confirmHTML() +
-    toastHTML();
+    BG_COURT + (App.view === 'setup' || !App.S ? setupHTML() : scheduleHTML()) + sheetHTML() + confirmHTML();
   if (App.anim) {
     const main = $app.querySelector('.main');
     if (main) {
@@ -972,23 +964,52 @@ function render() {
     const dlg = $app.querySelector('.dlg');
     if (dlg) dlg.focus({ preventScroll: true });
   }
-  if (App.toast && !App.toast.loading) {
-    App.toast.shown = true;
-    clearTimeout(toastTimer);
-    if (!App.toast.keep) {
-      App.toast.keep = true;
-    }
-  }
 }
+/* ---------- toast ----------
+   The toast lives in its own layer outside #app, so redrawing the screen never touches it.
+   It removes itself after TOAST_MS, and the CSS also fades it out as a backup. */
+const TOAST_MS = 3000;
+const toastHost = document.createElement('div');
+document.body.appendChild(toastHost);
+let toastTimer = null;
 function showToast(msg, undo) {
-  App.toast = { msg, undo: !!undo };
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    App.toast = null;
-    const el = $app.querySelector('.toast');
-    if (el) el.remove();
-  }, 7000);
+  toastHost.innerHTML =
+    '<div class="toast" role="status"><span>' +
+    esc(msg) +
+    '</span>' +
+    (undo ? '<button data-act="undo">Undo</button>' : '') +
+    '</div>';
+  toastTimer = setTimeout(hideToast, TOAST_MS);
 }
+function showLoading(msg) {
+  clearTimeout(toastTimer);
+  toastHost.innerHTML =
+    '<div class="toast loading" role="status" aria-live="polite"><span class="spin"></span><span>' +
+    esc(msg) +
+    '…</span></div>';
+}
+function hideToast(instant) {
+  clearTimeout(toastTimer);
+  const el = toastHost.firstElementChild;
+  if (!el) return;
+  if (instant === true) {
+    toastHost.innerHTML = '';
+    return;
+  }
+  el.classList.add('out');
+  setTimeout(() => {
+    if (toastHost.firstElementChild === el) toastHost.innerHTML = '';
+  }, 200);
+}
+toastHost.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  Sound.unlock();
+  Sound.tap();
+  App.lastAct = el.dataset.act;
+  onAction(el.dataset.act, el);
+});
 function openerSel(el) {
   if (!el || !el.dataset || !el.dataset.act) return null;
   let s = '[data-act="' + el.dataset.act + '"]';
@@ -998,8 +1019,7 @@ function openerSel(el) {
 }
 function openSheet(sheet, from) {
   App.opener = openerSel(from);
-  App.toast = null;
-  clearTimeout(toastTimer);
+  hideToast(true);
   App.sheet = sheet;
   App.sheetNew = true;
   render();
@@ -1036,8 +1056,7 @@ function mutate(fn, msg, closeIt) {
     App.sheet = null;
     App.sheetNew = false;
   }
-  App.toast = { msg: 'Updating schedule', loading: true };
-  clearTimeout(toastTimer);
+  showLoading('Updating schedule');
   render();
   requestAnimationFrame(() =>
     setTimeout(() => {
@@ -1047,7 +1066,7 @@ function mutate(fn, msg, closeIt) {
         showToast(typeof msg === 'function' ? msg() : msg, true);
         (Sound[CUES[App.lastAct]] || Sound.soft).call(Sound);
       } catch (e) {
-        App.toast = null;
+        hideToast(true);
       }
       App.working = false;
       save();
@@ -1248,7 +1267,7 @@ function onAction(act, el) {
         App.vr = 0;
         App.anim = 'in';
         App.busy = false;
-        App.toast = null;
+        hideToast(true);
         Sound.ok();
         save();
         render();
@@ -1337,14 +1356,23 @@ function onAction(act, el) {
       break;
     case 'win': {
       const f = findMatch(S, sh.id);
-      mutate(() => {
-        setResult(S, sh.id, d.side, []);
-        const rd = S.rounds[f.r];
-        if (rd.matches.every((m) => m.done) && f.r === App.vr && f.r < S.rounds.length - 1) {
-          App.vr = curRound(S);
-          App.anim = 'next';
-        }
-      }, 'Winner saved.');
+      let started = null;
+      mutate(
+        () => {
+          setResult(S, sh.id, d.side, []);
+          const rd = S.rounds[f.r];
+          if (rd.matches.every((m) => m.done)) {
+            if (f.r === App.vr && f.r < S.rounds.length - 1) {
+              App.vr = curRound(S);
+              App.anim = 'next';
+            }
+          } else started = startEarly(S, f.r, f.m.court);
+        },
+        () =>
+          started
+            ? 'Winner saved. Court ' + f.m.court + ' next: ' + matchText(started) + '.'
+            : 'Winner saved.',
+      );
       break;
     }
     case 'reopen':
@@ -1432,7 +1460,7 @@ function onAction(act, el) {
           App.sheet = null;
           App.view = 'setup';
           App.anim = 'in';
-          App.toast = null;
+          hideToast(true);
           Sound.warn();
           save();
           render();
@@ -1443,7 +1471,7 @@ function onAction(act, el) {
       if (App.undo) {
         App.S = JSON.parse(App.undo);
         App.undo = null;
-        App.toast = null;
+        hideToast(true);
         Sound.undo();
         App.vr = Math.min(App.vr, App.S.rounds.length - 1);
         save();

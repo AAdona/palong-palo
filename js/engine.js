@@ -227,7 +227,7 @@ function buildFrom(S, from, attempts) {
       built = [];
     for (let r = from; r < S.totalRounds; r++) {
       const old = S.rounds[r];
-      const kept = old ? old.matches.filter((m) => m.done) : [];
+      const kept = old ? old.matches.filter((m) => m.done || m.live) : [];
       kept.forEach((m) => addMatchStats(st, m, r));
       const avail = courtsFor(S, r);
       const res = planRound(S.active, st, kept, avail.length, r, rnd, S.baseline || {});
@@ -474,6 +474,60 @@ function courtState(S, c) {
   }
   return { on: false };
 }
+/* A court finished before the other one. Start that court's next match now, using only
+   players who are free. Returns the match that was started, or null if none could be.
+   The match is flagged `live`, so later rebuilds keep it where it is. */
+function startEarly(S, r, c) {
+  const q = r + 1;
+  if (r !== curRound(S) || q >= S.rounds.length) return null;
+  const here = S.rounds[r],
+    next = S.rounds[q];
+  if (!courtsFor(S, q).includes(c)) return null;
+  if (next.matches.some((m) => m.court === c && (m.done || m.live))) return null;
+
+  const busy = new Set();
+  const hold = (m) => [...m.a, ...m.b].forEach((p) => busy.add(p));
+  here.matches.filter((m) => !m.done).forEach(hold);
+  S.rounds.forEach((rd) => rd.matches.filter((m) => m.live && !m.done).forEach(hold));
+  next.matches.filter((m) => m.done || m.live).forEach(hold);
+  const free = S.active.filter((p) => !busy.has(p));
+  if (free.length < 4) return null;
+
+  const planned = next.matches.find((m) => m.court === c);
+  if (planned && [...planned.a, ...planned.b].every((p) => free.includes(p))) {
+    planned.live = true;
+    return planned;
+  }
+
+  const st = statsFrom(S.rounds, q);
+  let best = null,
+    bestScore = Infinity;
+  for (let t = 0; t < 25; t++) {
+    const res = planRound(free, st, [], 1, q, rngFrom((Math.random() * 4294967296) >>> 0), S.baseline || {});
+    if (!res.matches.length) return null;
+    const trial = cloneStats(st);
+    addMatchStats(trial, res.matches[0], q);
+    const score = scoreStats(trial, S.active);
+    if (score < bestScore) {
+      bestScore = score;
+      best = res.matches[0];
+    }
+  }
+  const started = {
+    id: uid(),
+    court: c,
+    a: best.a,
+    b: best.b,
+    done: false,
+    winner: null,
+    sets: [],
+    live: true,
+  };
+  next.matches = next.matches.filter((m) => m.court !== c).concat(started);
+  buildFrom(S, q, 120);
+  return findMatch(S, started.id).m;
+}
+
 function setResult(S, id, winner, sets) {
   for (const rd of S.rounds)
     for (const m of rd.matches)
@@ -503,6 +557,7 @@ function findMatch(S, id) {
 }
 if (typeof module !== 'undefined')
   module.exports = {
+    startEarly,
     setCourtAt,
     deleteRound,
     isOffAt,
