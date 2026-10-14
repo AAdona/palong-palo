@@ -1730,3 +1730,13 @@ input[type='time'] {
 .sbar.off {
   opacity: 0.55;
 }
+
+/* ---------- header fit ---------- */
+.brand span {
+  white-space: nowrap;
+}
+@media (max-width: 430px) {
+  .top.sched .brand span {
+    display: none;
+  }
+}

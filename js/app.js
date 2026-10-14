@@ -281,7 +281,7 @@ function matchText(m) {
 function matchCard(m, r, cur, idx, canClose) {
   let st;
   if (m.done) st = ['done', 'Done'];
-  else if (r === cur) st = ['now', 'Playing now'];
+  else if (r === cur || m.live) st = ['now', 'Playing now'];
   else if (r < cur) st = ['', 'Not logged'];
   else st = ['', r === cur + 1 ? 'Up next' : 'Later'];
   const pos = { a: ['26.4%', '73.6%'] };
@@ -431,6 +431,22 @@ function scheduleHTML() {
             : ''),
     );
   }
+  S.rounds.forEach((x, q) => {
+    if (q <= r) return;
+    x.matches.forEach((m) => {
+      if (m.live && !m.done)
+        closed.push(
+          '<span>Court ' +
+            m.court +
+            ' is playing: ' +
+            esc(matchText(m)) +
+            '</span>' +
+            '<button class="btn sm quiet" data-act="goto" data-r="' +
+            q +
+            '">Show</button>',
+        );
+    });
+  });
   const cnote = closed.length
     ? '<div class="note courtnote">' +
       closed.map((x) => '<div class="cnrow">' + x + '</div>').join('') +
@@ -478,7 +494,7 @@ function scheduleHTML() {
   }
   return (
     '<div class="shell">' +
-    '<header class="top"><div class="brand">' +
+    '<header class="top sched"><div class="brand">' +
     I.brand +
     '<span>Palong Palo</span></div><div class="actions">' +
     '<button class="btn quiet icon" data-act="full" aria-label="Full schedule" title="Full schedule">' +
@@ -1337,14 +1353,23 @@ function onAction(act, el) {
       break;
     case 'win': {
       const f = findMatch(S, sh.id);
-      mutate(() => {
-        setResult(S, sh.id, d.side, []);
-        const rd = S.rounds[f.r];
-        if (rd.matches.every((m) => m.done) && f.r === App.vr && f.r < S.rounds.length - 1) {
-          App.vr = curRound(S);
-          App.anim = 'next';
-        }
-      }, 'Winner saved.');
+      let started = null;
+      mutate(
+        () => {
+          setResult(S, sh.id, d.side, []);
+          const rd = S.rounds[f.r];
+          if (rd.matches.every((m) => m.done)) {
+            if (f.r === App.vr && f.r < S.rounds.length - 1) {
+              App.vr = curRound(S);
+              App.anim = 'next';
+            }
+          } else started = startEarly(S, f.r, f.m.court);
+        },
+        () =>
+          started
+            ? 'Winner saved. Court ' + f.m.court + ' next: ' + matchText(started) + '.'
+            : 'Winner saved.',
+      );
       break;
     }
     case 'reopen':
