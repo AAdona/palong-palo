@@ -1,16 +1,8 @@
-<<<<<<< HEAD
 # Monday Doubles
 
 A mobile-first web app that builds and manages badminton doubles match-ups for a regular group. Pick who is playing, generate a schedule, then edit it as the session goes. Later rounds rebuild automatically.
 
 Installable on an iPhone or Android home screen and works offline after the first visit. Everything is saved in the browser (localStorage), so a refresh does not lose the session.
-=======
-# Doubles Badminton Queueing
-
-A mobile-first web app that builds and manages badminton doubles match-ups for a regular group. Pick who is playing, generate a schedule, then edit it as the session goes. Later rounds rebuild automatically.
-
-Works as a normal web page and can be added to an iPhone home screen. Everything is saved in the browser (localStorage), so a refresh does not lose the session.
->>>>>>> f1592cb6f542fca2ae36cdd8ed37e8134fc75382
 
 ## Features
 
@@ -23,7 +15,10 @@ Works as a normal web page and can be added to an iPhone home screen. Everything
 - **Change the length:** add one round or one hour, or delete a round.
 - **Results:** pick the winning team per match. No scores are tracked.
 - **Full schedule:** a compact list of every round plus an overall winner.
-- **Undo:** every change shows a toast with Undo.
+- **Stats:** who has the most and fewest games, with a bar per player.
+- **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
+- **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
+- **Undo:** every change shows a loader, then a toast with Undo.
 - **Reshuffle:** regenerate the remaining rounds without touching finished matches.
 
 ## Using it
@@ -51,7 +46,6 @@ With 12 players on 2 courts for about 9 rounds, expect around 6 games each, near
 
 ## Project layout
 
-<<<<<<< HEAD
 ```
 monday-doubles/
   index.html              Page shell, SEO tags, social cards, structured data
@@ -62,6 +56,7 @@ monday-doubles/
   css/style.css           All styles (ivory and matcha palette from DESIGN.md)
   js/engine.js            Scheduling and edit logic, no DOM code
   js/app.js               UI, state, sheets, events
+  js/sound.js             Tap sounds and small buzzes (Web Audio, no files)
   js/pwa.js               Registers the service worker
   icons/                  favicon.ico, favicon.svg, app icons, share image
   scripts/set-site-url.js Swaps the placeholder domain for yours
@@ -111,33 +106,5 @@ Edit the files and push. The service worker fetches from the network first and f
 ## Limits
 
 - Offline support needs the site to be served over HTTPS (Vercel does this) and opened once while online.
-=======
-| File | Purpose |
-| --- | --- |
-| `engine.js` | Pure scheduling and edit logic. Also runs under Node for tests. |
-| `app.js` | UI, state, sheets and event handling. |
-| `style.css` | Styles, based on `DESIGN.md` (ivory and matcha palette, Inter and Zen Maru Gothic, top-down court SVG). |
-| `build.js` | Bundles everything into `dist/page.html` and a local test page `dist/test.html`. |
-
-No framework and no dependencies. Plain JavaScript, one output file.
-
-## Build and run
-
-```
-node build.js
-```
-
-Open `dist/test.html` in a browser, or publish `dist/page.html` anywhere that serves static files.
-
-To run the engine on its own:
-
-```
-node -e "const e=require('./engine.js'); console.log(Object.keys(e))"
-```
-
-## Limits
-
-- The page needs a connection to load. There is no service worker, so it is not a true offline PWA. A home-screen shortcut opens it like a web page, not a standalone app.
->>>>>>> f1592cb6f542fca2ae36cdd8ed37e8134fc75382
 - Data lives in one browser on one device. It is not shared between phones.
 - Google Fonts load from the network. The layout falls back to system fonts if they cannot load.

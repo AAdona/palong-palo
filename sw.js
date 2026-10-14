@@ -4,6 +4,7 @@ const CACHE = 'monday-doubles-' + VERSION;
 const SHELL = [
   '/',
   '/css/style.css',
+  '/js/sound.js',
   '/js/engine.js',
   '/js/app.js',
   '/js/pwa.js',

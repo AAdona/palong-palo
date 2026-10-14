@@ -72,6 +72,12 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M6.800 10h6.400"/></svg>',
   trash:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>',
+  stats:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>',
+  soundOn:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13 7.500a3.500 3.500 0 010 5M15.500 5.500a6.500 6.500 0 010 9"/></svg>',
+  soundOff:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13.500 8l4 4M17.500 8l-4 4"/></svg>',
   dot: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg>',
   brand:
     '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" fill="#35523B"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" stroke="#6F9569" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -213,7 +219,15 @@ function setupHTML() {
     '<header class="top"><div class="brand">' +
     I.brand +
     '<span>Doubles</span></div>' +
+    '<div class="actions">' +
     (App.S ? '<button class="btn sm quiet" data-act="resume">Back to session</button>' : '') +
+    '<button class="btn quiet icon" data-act="sound" aria-label="Sound ' +
+    (Sound.enabled ? 'on' : 'off') +
+    '" aria-pressed="' +
+    Sound.enabled +
+    '" title="Sound">' +
+    (Sound.enabled ? I.soundOn : I.soundOff) +
+    '</button></div>' +
     '</header>' +
     '<main class="main">' +
     '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px"><div><h1 class="setup-title">Who is playing today?</h1><p class="setup-sub">' +
@@ -469,6 +483,9 @@ function scheduleHTML() {
     '<span>Doubles</span></div><div class="actions">' +
     '<button class="btn quiet icon" data-act="full" aria-label="Full schedule" title="Full schedule">' +
     I.list +
+    '</button>' +
+    '<button class="btn quiet icon" data-act="stats" aria-label="Stats" title="Stats">' +
+    I.stats +
     '</button>' +
     '<button class="btn quiet icon" data-act="add-round" aria-label="Add a round" title="Add a round">' +
     I.roundplus +
@@ -836,29 +853,32 @@ function playersSheet() {
   return sheetShell('Players', 'Round ' + (cur + 1) + ' of ' + S.rounds.length, body);
 }
 
-function menuSheet(sh) {
+function menuSheet() {
   const S = App.S,
     sm = summarize(S);
-  let body;
-  if (sh.confirm) {
-    body =
-      '<p>Discard this session and start over? Results and edits will be lost.</p><div class="menu"><button class="btn danger" data-act="new-session">Discard and start over</button><button class="btn" data-act="close">Keep session</button></div>';
-  } else {
-    body =
-      '<div class="group"><h3>Play longer</h3><div class="cands"><button class="btn" data-act="add-round">' +
-      I.plus +
-      'Add 1 round</button><button class="btn" data-act="add-hour">' +
-      I.plus +
-      'Add 1 hour</button></div></div>' +
-      '<div class="menu"><button class="btn" data-act="setup">Back to setup</button><button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
-      '<p class="note">Each match is about ' +
-      S.minutes +
-      ' minutes. Opponent coverage is ' +
-      sm.oppPct +
-      '% and partner coverage is ' +
-      sm.partnerPct +
-      '%.</p>';
-  }
+  const body =
+    '<div class="group"><h3>Play longer</h3><div class="cands">' +
+    '<button class="btn" data-act="add-round">' +
+    I.plus +
+    'Add 1 round</button>' +
+    '<button class="btn" data-act="add-hour">' +
+    I.plus +
+    'Add 1 hour</button></div></div>' +
+    '<div class="group"><div class="rrow"><span>Sound<small class="cs">Tap sounds and small buzzes</small></span>' +
+    '<button class="sw" role="switch" aria-checked="' +
+    Sound.enabled +
+    '" aria-label="Sound" data-act="sound">' +
+    (Sound.enabled ? 'On' : 'Off') +
+    '</button></div></div>' +
+    '<div class="menu"><button class="btn" data-act="setup">Back to setup</button>' +
+    '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
+    '<p class="note">Each match is about ' +
+    S.minutes +
+    ' minutes. Opponent coverage is ' +
+    sm.oppPct +
+    '% and partner coverage is ' +
+    sm.partnerPct +
+    '%.</p>';
   return sheetShell('Session', S.active.length + ' players', body);
 }
 
@@ -891,13 +911,20 @@ function sheetHTML() {
   if (sh.type === 'result') return resultSheet(sh);
   if (sh.type === 'players') return playersSheet();
   if (sh.type === 'full') return fullSheet();
-  if (sh.type === 'menu') return menuSheet(sh);
+  if (sh.type === 'menu') return menuSheet();
   if (sh.type === 'roster') return rosterSheet();
+  if (sh.type === 'stats') return statsSheet();
   return '';
 }
 function toastHTML() {
   const t = App.toast;
   if (!t) return '';
+  if (t.loading)
+    return (
+      '<div class="toast loading" role="status" aria-live="polite"><span class="spin"></span><span>' +
+      esc(t.msg) +
+      '…</span></div>'
+    );
   return (
     '<div class="toast" role="status"' +
     (t.shown ? ' style="animation:none"' : '') +
@@ -914,7 +941,11 @@ let toastTimer = null;
 function render() {
   const hadSheet = !!$app.querySelector('.sheet');
   $app.innerHTML =
-    BG_COURT + (App.view === 'setup' || !App.S ? setupHTML() : scheduleHTML()) + sheetHTML() + toastHTML();
+    BG_COURT +
+    (App.view === 'setup' || !App.S ? setupHTML() : scheduleHTML()) +
+    sheetHTML() +
+    confirmHTML() +
+    toastHTML();
   if (App.anim) {
     const main = $app.querySelector('.main');
     if (main) {
@@ -937,7 +968,11 @@ function render() {
       sh.focus({ preventScroll: true });
     }
   }
-  if (App.toast) {
+  if (App.confirm) {
+    const dlg = $app.querySelector('.dlg');
+    if (dlg) dlg.focus({ preventScroll: true });
+  }
+  if (App.toast && !App.toast.loading) {
     App.toast.shown = true;
     clearTimeout(toastTimer);
     if (!App.toast.keep) {
@@ -979,16 +1014,144 @@ function closeSheet() {
     App.opener = null;
   }
 }
+/* Sound cue per action. Anything not listed gets the soft one. */
+const CUES = {
+  win: 'ok',
+  'add-round': 'ok',
+  'add-hour': 'ok',
+  'court-on-round': 'ok',
+  'court-open': 'ok',
+  'court-close': 'warn',
+  'del-round': 'warn',
+  skip: 'warn',
+  out: 'warn',
+};
+
+/* Runs an edit. The loader toast is painted first, so the tap feels instant
+   even though rebuilding the schedule takes a moment. */
 function mutate(fn, msg, closeIt) {
-  App.undo = JSON.stringify(App.S);
-  fn();
+  if (App.working) return;
+  App.working = true;
   if (closeIt !== false) {
     App.sheet = null;
     App.sheetNew = false;
   }
-  showToast(typeof msg === 'function' ? msg() : msg, true);
-  save();
+  App.toast = { msg: 'Updating schedule', loading: true };
+  clearTimeout(toastTimer);
   render();
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      try {
+        App.undo = JSON.stringify(App.S);
+        fn();
+        showToast(typeof msg === 'function' ? msg() : msg, true);
+        (Sound[CUES[App.lastAct]] || Sound.soft).call(Sound);
+      } catch (e) {
+        App.toast = null;
+      }
+      App.working = false;
+      save();
+      render();
+    }, 0),
+  );
+}
+
+/* Confirmation dialog for deletes. opts: { title, body, label, act, run } */
+function askConfirm(opts) {
+  App.confirm = opts;
+  render();
+}
+function confirmHTML() {
+  const c = App.confirm;
+  if (!c) return '';
+  return (
+    '<div class="scrim open" data-act="confirm-no" style="z-index:20"></div>' +
+    '<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlg-t" aria-describedby="dlg-b" tabindex="-1">' +
+    '<h2 id="dlg-t">' +
+    esc(c.title) +
+    '</h2><p id="dlg-b">' +
+    esc(c.body) +
+    '</p>' +
+    '<div class="dlg-a"><button class="btn" data-act="confirm-no">Cancel</button>' +
+    '<button class="btn danger" data-act="confirm-yes">' +
+    esc(c.label) +
+    '</button></div></div>'
+  );
+}
+
+/* Games per player: scheduled total and how many are already logged as done. */
+function gameStats(S) {
+  const per = {};
+  allNames(S).forEach((n) => (per[n] = { name: n, total: 0, done: 0 }));
+  S.rounds.forEach((rd) =>
+    rd.matches.forEach((m) =>
+      m.a.concat(m.b).forEach((p) => {
+        per[p].total++;
+        if (m.done) per[p].done++;
+      }),
+    ),
+  );
+  return Object.values(per)
+    .filter((p) => p.total > 0 || S.active.includes(p.name))
+    .sort((x, y) => y.total - x.total || y.done - x.done || x.name.localeCompare(y.name));
+}
+function statsSheet() {
+  const S = App.S,
+    rows = gameStats(S);
+  if (!rows.length) return sheetShell('Stats', '', '<p class="note">No matches yet.</p>');
+  const max = Math.max(...rows.map((r) => r.total)),
+    min = Math.min(...rows.map((r) => r.total)),
+    even = max === min;
+  const who = (v) => {
+    const n = rows.filter((r) => r.total === v).map((r) => r.name);
+    return n.length > 3 ? n.length + ' players' : n.map(esc).join(', ');
+  };
+  const tiles = even
+    ? '<div class="tiles one"><div class="tile"><span>Everyone plays</span><b>' +
+      max +
+      ' games</b></div></div>'
+    : '<div class="tiles">' +
+      '<div class="tile hi"><span>Most games</span><b>' +
+      who(max) +
+      '</b><small>' +
+      max +
+      ' games</small></div>' +
+      '<div class="tile lo"><span>Fewest games</span><b>' +
+      who(min) +
+      '</b><small>' +
+      min +
+      ' games</small></div></div>';
+  const bars = rows
+    .map((r) => {
+      const cls = even ? '' : r.total === max ? ' most' : r.total === min ? ' least' : '';
+      return (
+        '<div class="sbar' +
+        cls +
+        (S.active.includes(r.name) ? '' : ' off') +
+        '"><span class="nm">' +
+        esc(r.name) +
+        '</span>' +
+        '<span class="trk"><i class="t" style="width:' +
+        (r.total / max) * 100 +
+        '%"></i><i class="d" style="width:' +
+        (r.done / max) * 100 +
+        '%"></i></span>' +
+        '<span class="num">' +
+        r.done +
+        '/' +
+        r.total +
+        '</span></div>'
+      );
+    })
+    .join('');
+  return sheetShell(
+    'Stats',
+    'Games per player',
+    tiles +
+      '<div class="sbars">' +
+      bars +
+      '</div><p class="note">Dark is played and logged, light is still to come.</p>',
+  );
 }
 
 /* ---------- actions ---------- */
@@ -1034,12 +1197,41 @@ function onAction(act, el) {
     case 'open-roster':
       openSheet({ type: 'roster' }, el);
       break;
-    case 'roster-del':
-      App.roster = App.roster.filter((n) => n !== d.name);
-      App.picked.delete(d.name);
-      save();
+    case 'roster-del': {
+      const name = d.name;
+      askConfirm({
+        title: 'Remove ' + name + '?',
+        body: 'They come off your players list. You can add them back any time.',
+        label: 'Remove',
+        act: 'roster-del',
+        run: () => {
+          App.roster = App.roster.filter((n) => n !== name);
+          App.picked.delete(name);
+          Sound.warn();
+          save();
+          render();
+        },
+      });
+      break;
+    }
+    case 'stats':
+      openSheet({ type: 'stats' }, el);
+      break;
+    case 'sound':
+      Sound.set(!Sound.enabled);
       render();
       break;
+    case 'confirm-no':
+      App.confirm = null;
+      render();
+      break;
+    case 'confirm-yes': {
+      const c = App.confirm;
+      App.confirm = null;
+      App.lastAct = c.act;
+      c.run();
+      break;
+    }
     case 'generate': {
       if (
         App.busy ||
@@ -1057,6 +1249,7 @@ function onAction(act, el) {
         App.anim = 'in';
         App.busy = false;
         App.toast = null;
+        Sound.ok();
         save();
         render();
       }, 40);
@@ -1203,13 +1396,20 @@ function onAction(act, el) {
     }
     case 'del-round': {
       const r = +d.r;
-      mutate(
-        () => {
-          deleteRound(S, r);
-          App.vr = Math.min(r, S.rounds.length - 1);
-        },
-        'Round ' + (r + 1) + ' deleted.',
-      );
+      askConfirm({
+        title: 'Delete round ' + (r + 1) + '?',
+        body: 'Its matches are removed and the later rounds move up. You can undo right after.',
+        label: 'Delete round',
+        act: 'del-round',
+        run: () =>
+          mutate(
+            () => {
+              deleteRound(S, r);
+              App.vr = Math.min(r, S.rounds.length - 1);
+            },
+            'Round ' + (r + 1) + ' deleted.',
+          ),
+      });
       break;
     }
     case 'court-open': {
@@ -1222,23 +1422,29 @@ function onAction(act, el) {
       break;
     }
     case 'ask-new':
-      sh.confirm = true;
-      render();
-      break;
-    case 'new-session':
-      App.S = null;
-      App.sheet = null;
-      App.view = 'setup';
-      App.anim = 'in';
-      App.toast = null;
-      save();
-      render();
+      askConfirm({
+        title: 'Start a new session?',
+        body: 'This discards the current schedule and all results.',
+        label: 'Discard session',
+        act: 'new-session',
+        run: () => {
+          App.S = null;
+          App.sheet = null;
+          App.view = 'setup';
+          App.anim = 'in';
+          App.toast = null;
+          Sound.warn();
+          save();
+          render();
+        },
+      });
       break;
     case 'undo':
       if (App.undo) {
         App.S = JSON.parse(App.undo);
         App.undo = null;
         App.toast = null;
+        Sound.undo();
         App.vr = Math.min(App.vr, App.S.rounds.length - 1);
         save();
         render();
@@ -1253,6 +1459,9 @@ $app.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
   if (el.classList.contains('scrim') && e.target !== el) return;
+  Sound.unlock();
+  if (el.dataset.act !== 'sound') Sound.tap();
+  App.lastAct = el.dataset.act;
   onAction(el.dataset.act, el);
 });
 $app.addEventListener('change', (e) => {
@@ -1294,7 +1503,11 @@ $app.addEventListener('submit', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && App.sheet) closeSheet();
+  if (e.key !== 'Escape') return;
+  if (App.confirm) {
+    App.confirm = null;
+    render();
+  } else if (App.sheet) closeSheet();
 });
 let tx = 0,
   ty = 0;

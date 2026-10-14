@@ -1585,3 +1585,148 @@ input[type='time'] {
   min-height: 36px;
   margin-right: -8px;
 }
+
+/* ---------- room for the iPhone home bar ---------- */
+.shell {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+}
+.sheet {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+}
+.toast {
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- loader toast ---------- */
+.toast.loading {
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+/* ---------- confirm dialog ---------- */
+.dlg {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  top: 50%;
+  margin: 0 auto;
+  max-width: 340px;
+  transform: translateY(-50%);
+  z-index: 21;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-popover);
+  padding: 20px 18px 16px;
+  display: grid;
+  gap: 8px;
+  animation: pop var(--motion-standard) var(--ease-emphasized) both;
+}
+.dlg h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+.dlg p {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+.dlg-a {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dlg-a .btn.danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-paper);
+}
+
+/* ---------- stats ---------- */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.tiles.one {
+  grid-template-columns: 1fr;
+}
+.tile {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  border: 1px solid var(--color-line);
+}
+.tile span,
+.tile small {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+.tile b {
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+.tile.hi {
+  background: var(--color-sage);
+}
+.tile.lo {
+  background: #f8e6d8;
+}
+.sbars {
+  display: grid;
+  gap: 8px;
+}
+.sbar {
+  display: grid;
+  grid-template-columns: 74px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+.sbar .nm {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sbar .trk {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--color-cream);
+  overflow: hidden;
+}
+.sbar .trk i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+}
+.sbar .t {
+  background: var(--color-sage);
+}
+.sbar .d {
+  background: var(--color-court-deep);
+}
+.sbar.most .t {
+  background: var(--color-matcha);
+}
+.sbar.least .t {
+  background: var(--color-peach);
+}
+.sbar.least .d {
+  background: #c98a5e;
+}
+.sbar .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+.sbar.off {
+  opacity: 0.55;
+}
