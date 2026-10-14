@@ -955,6 +955,7 @@ function toastHTML() {
 /* ---------- render ---------- */
 let toastTimer = null;
 function render() {
+  if (App.toast && !App.toast.loading && Date.now() > App.toast.until) App.toast = null;
   const hadSheet = !!$app.querySelector('.sheet');
   $app.innerHTML =
     BG_COURT +
@@ -991,14 +992,18 @@ function render() {
   /* The dismiss timer belongs to showToast. Re-rendering must not cancel it. */
   if (App.toast && !App.toast.loading) App.toast.shown = true;
 }
+const TOAST_MS = 3000;
 function showToast(msg, undo) {
-  App.toast = { msg, undo: !!undo };
+  App.toast = { msg, undo: !!undo, until: Date.now() + TOAST_MS };
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    App.toast = null;
-    const el = $app.querySelector('.toast');
-    if (el) el.remove();
-  }, 5000);
+  toastTimer = setTimeout(hideToast, TOAST_MS);
+}
+function hideToast() {
+  App.toast = null;
+  const el = $app.querySelector('.toast');
+  if (!el) return;
+  el.classList.add('out');
+  setTimeout(() => el.remove(), 180);
 }
 function openerSel(el) {
   if (!el || !el.dataset || !el.dataset.act) return null;

@@ -1740,3 +1740,11 @@ input[type='time'] {
     display: none;
   }
 }
+
+.toast.out {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 180ms var(--ease-standard),
+    transform 180ms var(--ease-standard);
+}
