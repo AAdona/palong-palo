@@ -988,13 +988,8 @@ function render() {
     const dlg = $app.querySelector('.dlg');
     if (dlg) dlg.focus({ preventScroll: true });
   }
-  if (App.toast && !App.toast.loading) {
-    App.toast.shown = true;
-    clearTimeout(toastTimer);
-    if (!App.toast.keep) {
-      App.toast.keep = true;
-    }
-  }
+  /* The dismiss timer belongs to showToast. Re-rendering must not cancel it. */
+  if (App.toast && !App.toast.loading) App.toast.shown = true;
 }
 function showToast(msg, undo) {
   App.toast = { msg, undo: !!undo };
@@ -1003,7 +998,7 @@ function showToast(msg, undo) {
     App.toast = null;
     const el = $app.querySelector('.toast');
     if (el) el.remove();
-  }, 7000);
+  }, 5000);
 }
 function openerSel(el) {
   if (!el || !el.dataset || !el.dataset.act) return null;
