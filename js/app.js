@@ -218,7 +218,7 @@ function setupHTML() {
     '<div class="shell">' +
     '<header class="top"><div class="brand">' +
     I.brand +
-    '<span>Doubles</span></div>' +
+    '<span>Palong Palo</span></div>' +
     '<div class="actions">' +
     (App.S ? '<button class="btn sm quiet" data-act="resume">Back to session</button>' : '') +
     '<button class="btn quiet icon" data-act="sound" aria-label="Sound ' +
@@ -480,7 +480,7 @@ function scheduleHTML() {
     '<div class="shell">' +
     '<header class="top"><div class="brand">' +
     I.brand +
-    '<span>Doubles</span></div><div class="actions">' +
+    '<span>Palong Palo</span></div><div class="actions">' +
     '<button class="btn quiet icon" data-act="full" aria-label="Full schedule" title="Full schedule">' +
     I.list +
     '</button>' +

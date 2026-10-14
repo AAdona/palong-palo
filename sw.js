@@ -1,6 +1,6 @@
 /* Service worker: network first, cache fallback. Bump VERSION to force a fresh cache. */
 const VERSION = 'v1';
-const CACHE = 'monday-doubles-' + VERSION;
+const CACHE = 'palong-palo-' + VERSION;
 const SHELL = [
   '/',
   '/css/style.css',

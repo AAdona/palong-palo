@@ -1,4 +1,4 @@
-# Monday Doubles
+# Palong Palo
 
 A mobile-first web app that builds and manages badminton doubles match-ups for a regular group. Pick who is playing, generate a schedule, then edit it as the session goes. Later rounds rebuild automatically.
 
@@ -47,7 +47,7 @@ With 12 players on 2 courts for about 9 rounds, expect around 6 games each, near
 ## Project layout
 
 ```
-monday-doubles/
+palong-palo/
   index.html              Page shell, SEO tags, social cards, structured data
   manifest.webmanifest    Home-screen app settings
   sw.js                   Service worker (offline support)
