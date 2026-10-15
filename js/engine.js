@@ -166,11 +166,11 @@ function planRound(active, st, kept, courts, r, rnd, base) {
   return { matches: bestPlan(playing, st, rnd), rest };
 }
 
-function scoreStats(st, names) {
+function scoreStats(st, names, base) {
   let s = 0;
   for (const k in st.partner) s += W_PARTNER * st.partner[k] ** 2;
   for (const k in st.opp) s += W_OPP * st.opp[k] ** 2;
-  const pl = names.map((n) => st.played[n] || 0);
+  const pl = names.map((n) => (st.played[n] || 0) + ((base && base[n]) || 0));
   const mean = pl.reduce((a, b) => a + b, 0) / (pl.length || 1);
   s += 60 * pl.reduce((a, b) => a + (b - mean) ** 2, 0);
   return s;
@@ -234,7 +234,7 @@ function buildFrom(S, from, attempts) {
       res.matches.forEach((m) => addMatchStats(st, m, r));
       built.push({ kept, res, avail });
     }
-    const sc = scoreStats(st, S.active);
+    const sc = scoreStats(st, S.active, S.baseline);
     if (sc < bs) {
       bs = sc;
       best = built;
@@ -397,11 +397,15 @@ function playerOut(S, name, r, replacement) {
 }
 function playerIn(S, name) {
   const r = curRound(S);
-  const sm = summarize(S);
-  const others = S.active.map((p) => (sm.per[p] ? sm.per[p].played : 0));
-  const mean = others.length ? Math.round(others.reduce((a, b) => a + b, 0) / others.length) : 0;
-  const own = sm.per[name] ? sm.per[name].played : 0;
+  /* Count only games up to now. Counting the whole future schedule would make the late
+     player look hugely "ahead" and he would barely get to play. */
+  const st = statsFrom(S.rounds, r + 1);
+  const others = S.active.map((p) => st.played[p] || 0);
+  const mean = others.length ? Math.round(others.reduce((x, y) => x + y, 0) / others.length) : 0;
+  const own = st.played[name] || 0;
   S.baseline = S.baseline || {};
+  /* Treated as if he already had the same number of games as everyone else. He is neither
+     pushed to catch up nor held back. */
   S.baseline[name] = Math.max(0, mean - own);
   S.active.push(name);
   if (S.rounds[r] && !findPlayer(S.rounds[r], name)) S.rounds[r].rest.push(name);
@@ -507,7 +511,7 @@ function startEarly(S, r, c) {
     if (!res.matches.length) return null;
     const trial = cloneStats(st);
     addMatchStats(trial, res.matches[0], q);
-    const score = scoreStats(trial, S.active);
+    const score = scoreStats(trial, S.active, S.baseline);
     if (score < bestScore) {
       bestScore = score;
       best = res.matches[0];

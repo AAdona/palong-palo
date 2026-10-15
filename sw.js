@@ -4,6 +4,7 @@ const CACHE = 'palong-palo-' + VERSION;
 const SHELL = [
   '/',
   '/css/style.css',
+  '/js/theme.js',
   '/js/sound.js',
   '/js/engine.js',
   '/js/app.js',

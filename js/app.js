@@ -72,6 +72,9 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M6.800 10h6.400"/></svg>',
   trash:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>',
+  sun: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="3.500"/><path d="M10 2.500v2M10 15.500v2M2.500 10h2M15.500 10h2M4.700 4.700l1.400 1.400M13.900 13.900l1.400 1.400M15.300 4.700l-1.400 1.400M6.100 13.900l-1.400 1.400"/></svg>',
+  moon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.500 11.500A6.500 6.500 0 018.500 3.500a6.500 6.500 0 108 8z"/></svg>',
+  auto: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.500"/><path d="M10 3.500v13a6.500 6.500 0 000-13z" fill="currentColor"/></svg>',
   stats:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>',
   soundOn:
@@ -80,7 +83,7 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13.500 8l4 4M17.500 8l-4 4"/></svg>',
   dot: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg>',
   brand:
-    '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" fill="#35523B"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" stroke="#6F9569" stroke-width="2" stroke-linecap="round"/></svg>',
+    '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" style="fill:var(--color-forest)"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" style="stroke:var(--color-court-deep)" stroke-width="2" stroke-linecap="round"/></svg>',
 };
 
 const COURT_LINES =
@@ -94,7 +97,7 @@ const COURT_SVG =
   '<g class="court-lines" fill="none" stroke="var(--court-line)" stroke-width="0.7" stroke-linejoin="round">' +
   COURT_LINES +
   '</g>' +
-  '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke="#292B29" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
+  '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
   '</svg>';
 const BG_COURT =
   '<svg class="bg-court" viewBox="-4 -4 142 69" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="0.8">' +
@@ -221,6 +224,13 @@ function setupHTML() {
     '<span>Palong Palo</span></div>' +
     '<div class="actions">' +
     (App.S ? '<button class="btn sm quiet" data-act="resume">Back to session</button>' : '') +
+    '<button class="btn quiet icon" data-act="theme-cycle" aria-label="Theme: ' +
+    Theme.pref +
+    '" title="Theme: ' +
+    Theme.pref +
+    '">' +
+    (Theme.pref === 'dark' ? I.moon : Theme.pref === 'light' ? I.sun : I.auto) +
+    '</button>' +
     '<button class="btn quiet icon" data-act="sound" aria-label="Sound ' +
     (Sound.enabled ? 'on' : 'off') +
     '" aria-pressed="' +
@@ -874,6 +884,28 @@ function menuSheet() {
   const S = App.S,
     sm = summarize(S);
   const body =
+    '<div class="group"><h3>Theme</h3><div class="seg three icons" role="radiogroup" aria-label="Theme">' +
+    [
+      ['light', 'Light', I.sun],
+      ['dark', 'Dark', I.moon],
+      ['system', 'Match my phone', I.auto],
+    ]
+      .map(
+        ([v, l, icon]) =>
+          '<button role="radio" aria-checked="' +
+          (Theme.pref === v) +
+          '" aria-label="' +
+          l +
+          '" title="' +
+          l +
+          '" data-act="theme" data-v="' +
+          v +
+          '">' +
+          icon +
+          '</button>',
+      )
+      .join('') +
+    '</div></div>' +
     '<div class="group"><h3>Play longer</h3><div class="cands">' +
     '<button class="btn" data-act="add-round">' +
     I.plus +
@@ -1017,6 +1049,23 @@ function openerSel(el) {
   if (el.dataset.id) s += '[data-id="' + el.dataset.id + '"]';
   return s;
 }
+/* Changes the theme with a soft top-to-bottom reveal. Falls back to a plain color fade. */
+function switchTheme(next) {
+  const change = () => {
+    Theme.set(next);
+    render();
+  };
+  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (calm) return change();
+  if (document.startViewTransition) {
+    document.startViewTransition(change);
+  } else {
+    const root = document.documentElement;
+    root.classList.add('theme-fade');
+    change();
+    setTimeout(() => root.classList.remove('theme-fade'), 400);
+  }
+}
 function openSheet(sheet, from) {
   App.opener = openerSel(from);
   hideToast(true);
@@ -1101,7 +1150,9 @@ function confirmHTML() {
 /* Games per player: scheduled total and how many are already logged as done. */
 function gameStats(S) {
   const per = {};
-  allNames(S).forEach((n) => (per[n] = { name: n, total: 0, done: 0 }));
+  allNames(S).forEach(
+    (n) => (per[n] = { name: n, total: 0, done: 0, late: ((S.baseline || {})[n] || 0) > 0 }),
+  );
   S.rounds.forEach((rd) =>
     rd.matches.forEach((m) =>
       m.a.concat(m.b).forEach((p) => {
@@ -1118,11 +1169,13 @@ function statsSheet() {
   const S = App.S,
     rows = gameStats(S);
   if (!rows.length) return sheetShell('Stats', '', '<p class="note">No matches yet.</p>');
-  const max = Math.max(...rows.map((r) => r.total)),
-    min = Math.min(...rows.map((r) => r.total)),
+  /* Late arrivals are left out of most and fewest. They only play from when they joined. */
+  const base = rows.filter((r) => !r.late).length ? rows.filter((r) => !r.late) : rows;
+  const max = Math.max(...base.map((r) => r.total)),
+    min = Math.min(...base.map((r) => r.total)),
     even = max === min;
   const who = (v) => {
-    const n = rows.filter((r) => r.total === v).map((r) => r.name);
+    const n = base.filter((r) => r.total === v).map((r) => r.name);
     return n.length > 3 ? n.length + ' players' : n.map(esc).join(', ');
   };
   const tiles = even
@@ -1140,20 +1193,22 @@ function statsSheet() {
       '</b><small>' +
       min +
       ' games</small></div></div>';
+  const top = Math.max(...rows.map((r) => r.total));
   const bars = rows
     .map((r) => {
-      const cls = even ? '' : r.total === max ? ' most' : r.total === min ? ' least' : '';
+      const cls = r.late || even ? '' : r.total === max ? ' most' : r.total === min ? ' least' : '';
       return (
         '<div class="sbar' +
         cls +
         (S.active.includes(r.name) ? '' : ' off') +
         '"><span class="nm">' +
         esc(r.name) +
+        (r.late ? ' <small class="latetag">late</small>' : '') +
         '</span>' +
         '<span class="trk"><i class="t" style="width:' +
-        (r.total / max) * 100 +
+        (r.total / top) * 100 +
         '%"></i><i class="d" style="width:' +
-        (r.done / max) * 100 +
+        (r.done / top) * 100 +
         '%"></i></span>' +
         '<span class="num">' +
         r.done +
@@ -1163,13 +1218,18 @@ function statsSheet() {
       );
     })
     .join('');
+  const lateNote = rows.some((r) => r.late)
+    ? ' Late arrivals play from when they joined and are not counted as fewest.'
+    : '';
   return sheetShell(
     'Stats',
     'Games per player',
     tiles +
       '<div class="sbars">' +
       bars +
-      '</div><p class="note">Dark is played and logged, light is still to come.</p>',
+      '</div><p class="note">The solid part is played and logged. The rest is still to come.' +
+      lateNote +
+      '</p>',
   );
 }
 
@@ -1235,6 +1295,12 @@ function onAction(act, el) {
     }
     case 'stats':
       openSheet({ type: 'stats' }, el);
+      break;
+    case 'theme':
+      switchTheme(d.v);
+      break;
+    case 'theme-cycle':
+      switchTheme(Theme.pref === 'system' ? 'light' : Theme.pref === 'light' ? 'dark' : 'system');
       break;
     case 'sound':
       Sound.set(!Sound.enabled);

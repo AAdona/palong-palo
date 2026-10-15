@@ -11,11 +11,13 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Match length:** set minutes per match (default 20). Games are to 15, capped at 17, best of 3.
 - **No waiting between courts:** when one court finishes first, picking its winner starts that court's next match right away with players who are free. A toast says who is up, with Undo.
 - **Fair match-ups:** everyone faces everyone as much as possible, with opponents prioritised over partners. Rest and play time is spread evenly.
+- **Late arrivals:** add someone mid-session from Players. They are scheduled in the later rounds and on Reshuffle, but are not given extra games to catch up with the others.
 - **Edit any round:** tap a player to rest them, swap them with someone else, or take them out for the day. Rounds after the change rebuild.
 - **Court controls:** skip a court for a single round, close a court from now on, or reopen it.
 - **Change the length:** add one round or one hour, or delete a round.
 - **Results:** pick the winning team per match. No scores are tracked.
 - **Full schedule:** a compact list of every round plus an overall winner.
+- **Dark mode:** Auto (follows the phone), Light or Dark. Pick it in the ⋯ menu, or with the sun/moon button on the setup screen. Remembered per device.
 - **Stats:** who has the most and fewest games, with a bar per player.
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
@@ -57,6 +59,7 @@ palong-palo/
   css/style.css           All styles (ivory and matcha palette from DESIGN.md)
   js/engine.js            Scheduling and edit logic, no DOM code
   js/app.js               UI, state, sheets, events
+  js/theme.js             Light, dark or auto theme, applied before first paint
   js/sound.js             Tap sounds and small buzzes (Web Audio, no files)
   js/pwa.js               Registers the service worker
   icons/                  favicon.ico, favicon.svg, app icons, share image

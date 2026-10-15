@@ -118,3 +118,18 @@ test('early starts never double-book anyone and keep games even', () => {
     assert.ok(Math.max(...g) - Math.min(...g) <= 2, 'games spread too wide: ' + g.join(','));
   }
 });
+
+/* ---- someone arrives late ---- */
+test('a late player is scheduled, but does not get extra games to catch up', () => {
+  for (let run = 0; run < 8; run++) {
+    const S = E.newSession(cfg(2, 180), NAMES.slice(0, 11));
+    /* play out the first 3 rounds */
+    for (let r = 0; r < 3; r++) S.rounds[r].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
+    E.playerIn(S, 'Late');
+    E.buildFrom(S, E.curRound(S), 300); /* the Reshuffle button */
+    const g = games(S);
+    assert.ok(g.Late >= 3, 'late player should be in the schedule, got ' + g.Late);
+    const others = NAMES.slice(0, 11).map((n) => g[n]);
+    assert.ok(g.Late <= Math.min(...others), 'late player caught up: ' + g.Late + ' vs ' + others.join(','));
+  }
+});
