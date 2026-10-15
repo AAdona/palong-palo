@@ -1868,3 +1868,13 @@ html.theme-fade *::after {
     fill 300ms ease,
     stroke 300ms ease !important;
 }
+
+.seg.icons button {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+}
+.seg.icons svg {
+  width: 20px;
+  height: 20px;
+}

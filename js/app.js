@@ -884,20 +884,24 @@ function menuSheet() {
   const S = App.S,
     sm = summarize(S);
   const body =
-    '<div class="group"><h3>Theme</h3><div class="seg three" role="radiogroup" aria-label="Theme">' +
+    '<div class="group"><h3>Theme</h3><div class="seg three icons" role="radiogroup" aria-label="Theme">' +
     [
-      ['system', 'Auto'],
-      ['light', 'Light'],
-      ['dark', 'Dark'],
+      ['light', 'Light', I.sun],
+      ['dark', 'Dark', I.moon],
+      ['system', 'Match my phone', I.auto],
     ]
       .map(
-        ([v, l]) =>
+        ([v, l, icon]) =>
           '<button role="radio" aria-checked="' +
           (Theme.pref === v) +
+          '" aria-label="' +
+          l +
+          '" title="' +
+          l +
           '" data-act="theme" data-v="' +
           v +
           '">' +
-          l +
+          icon +
           '</button>',
       )
       .join('') +
