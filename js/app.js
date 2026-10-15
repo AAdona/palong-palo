@@ -884,19 +884,6 @@ function menuSheet() {
   const S = App.S,
     sm = summarize(S);
   const body =
-    '<div class="group"><h3>Play longer</h3><div class="cands">' +
-    '<button class="btn" data-act="add-round">' +
-    I.plus +
-    'Add 1 round</button>' +
-    '<button class="btn" data-act="add-hour">' +
-    I.plus +
-    'Add 1 hour</button></div></div>' +
-    '<div class="group"><div class="rrow"><span>Sound<small class="cs">Tap sounds and small buzzes</small></span>' +
-    '<button class="sw" role="switch" aria-checked="' +
-    Sound.enabled +
-    '" aria-label="Sound" data-act="sound">' +
-    (Sound.enabled ? 'On' : 'Off') +
-    '</button></div></div>' +
     '<div class="group"><h3>Theme</h3><div class="seg three" role="radiogroup" aria-label="Theme">' +
     [
       ['system', 'Auto'],
@@ -915,6 +902,19 @@ function menuSheet() {
       )
       .join('') +
     '</div></div>' +
+    '<div class="group"><h3>Play longer</h3><div class="cands">' +
+    '<button class="btn" data-act="add-round">' +
+    I.plus +
+    'Add 1 round</button>' +
+    '<button class="btn" data-act="add-hour">' +
+    I.plus +
+    'Add 1 hour</button></div></div>' +
+    '<div class="group"><div class="rrow"><span>Sound<small class="cs">Tap sounds and small buzzes</small></span>' +
+    '<button class="sw" role="switch" aria-checked="' +
+    Sound.enabled +
+    '" aria-label="Sound" data-act="sound">' +
+    (Sound.enabled ? 'On' : 'Off') +
+    '</button></div></div>' +
     '<div class="menu"><button class="btn" data-act="setup">Back to setup</button>' +
     '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
     '<p class="note">Each match is about ' +
@@ -1044,6 +1044,23 @@ function openerSel(el) {
   if (el.dataset.name) s += '[data-name="' + CSS.escape(el.dataset.name) + '"]';
   if (el.dataset.id) s += '[data-id="' + el.dataset.id + '"]';
   return s;
+}
+/* Changes the theme with a soft top-to-bottom reveal. Falls back to a plain color fade. */
+function switchTheme(next) {
+  const change = () => {
+    Theme.set(next);
+    render();
+  };
+  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (calm) return change();
+  if (document.startViewTransition) {
+    document.startViewTransition(change);
+  } else {
+    const root = document.documentElement;
+    root.classList.add('theme-fade');
+    change();
+    setTimeout(() => root.classList.remove('theme-fade'), 400);
+  }
 }
 function openSheet(sheet, from) {
   App.opener = openerSel(from);
@@ -1276,12 +1293,10 @@ function onAction(act, el) {
       openSheet({ type: 'stats' }, el);
       break;
     case 'theme':
-      Theme.set(d.v);
-      render();
+      switchTheme(d.v);
       break;
     case 'theme-cycle':
-      Theme.set(Theme.pref === 'system' ? 'light' : Theme.pref === 'light' ? 'dark' : 'system');
-      render();
+      switchTheme(Theme.pref === 'system' ? 'light' : Theme.pref === 'light' ? 'dark' : 'system');
       break;
     case 'sound':
       Sound.set(!Sound.enabled);

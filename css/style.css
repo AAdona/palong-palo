@@ -1837,3 +1837,34 @@ input[type='time'] {
   font-weight: 600;
   color: var(--color-ink-muted);
 }
+
+/* ---------- theme change: reveal from top to bottom ---------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-wipe 480ms var(--ease-standard) both;
+}
+@keyframes theme-wipe {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0.5;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+/* Browsers without view transitions: fade the colors instead. */
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease !important;
+}
