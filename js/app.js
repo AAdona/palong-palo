@@ -1129,7 +1129,9 @@ function confirmHTML() {
 /* Games per player: scheduled total and how many are already logged as done. */
 function gameStats(S) {
   const per = {};
-  allNames(S).forEach((n) => (per[n] = { name: n, total: 0, done: 0 }));
+  allNames(S).forEach(
+    (n) => (per[n] = { name: n, total: 0, done: 0, late: ((S.baseline || {})[n] || 0) > 0 }),
+  );
   S.rounds.forEach((rd) =>
     rd.matches.forEach((m) =>
       m.a.concat(m.b).forEach((p) => {
@@ -1146,11 +1148,13 @@ function statsSheet() {
   const S = App.S,
     rows = gameStats(S);
   if (!rows.length) return sheetShell('Stats', '', '<p class="note">No matches yet.</p>');
-  const max = Math.max(...rows.map((r) => r.total)),
-    min = Math.min(...rows.map((r) => r.total)),
+  /* Late arrivals are left out of most and fewest. They only play from when they joined. */
+  const base = rows.filter((r) => !r.late).length ? rows.filter((r) => !r.late) : rows;
+  const max = Math.max(...base.map((r) => r.total)),
+    min = Math.min(...base.map((r) => r.total)),
     even = max === min;
   const who = (v) => {
-    const n = rows.filter((r) => r.total === v).map((r) => r.name);
+    const n = base.filter((r) => r.total === v).map((r) => r.name);
     return n.length > 3 ? n.length + ' players' : n.map(esc).join(', ');
   };
   const tiles = even
@@ -1168,20 +1172,22 @@ function statsSheet() {
       '</b><small>' +
       min +
       ' games</small></div></div>';
+  const top = Math.max(...rows.map((r) => r.total));
   const bars = rows
     .map((r) => {
-      const cls = even ? '' : r.total === max ? ' most' : r.total === min ? ' least' : '';
+      const cls = r.late || even ? '' : r.total === max ? ' most' : r.total === min ? ' least' : '';
       return (
         '<div class="sbar' +
         cls +
         (S.active.includes(r.name) ? '' : ' off') +
         '"><span class="nm">' +
         esc(r.name) +
+        (r.late ? ' <small class="latetag">late</small>' : '') +
         '</span>' +
         '<span class="trk"><i class="t" style="width:' +
-        (r.total / max) * 100 +
+        (r.total / top) * 100 +
         '%"></i><i class="d" style="width:' +
-        (r.done / max) * 100 +
+        (r.done / top) * 100 +
         '%"></i></span>' +
         '<span class="num">' +
         r.done +
@@ -1191,13 +1197,18 @@ function statsSheet() {
       );
     })
     .join('');
+  const lateNote = rows.some((r) => r.late)
+    ? ' Late arrivals play from when they joined and are not counted as fewest.'
+    : '';
   return sheetShell(
     'Stats',
     'Games per player',
     tiles +
       '<div class="sbars">' +
       bars +
-      '</div><p class="note">The solid part is played and logged. The rest is still to come.</p>',
+      '</div><p class="note">The solid part is played and logged. The rest is still to come.' +
+      lateNote +
+      '</p>',
   );
 }
 
