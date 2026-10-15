@@ -72,6 +72,9 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M6.800 10h6.400"/></svg>',
   trash:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>',
+  sun: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="3.500"/><path d="M10 2.500v2M10 15.500v2M2.500 10h2M15.500 10h2M4.700 4.700l1.400 1.400M13.900 13.900l1.400 1.400M15.300 4.700l-1.400 1.400M6.100 13.900l-1.400 1.400"/></svg>',
+  moon: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.500 11.500A6.500 6.500 0 018.500 3.500a6.500 6.500 0 108 8z"/></svg>',
+  auto: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.500"/><path d="M10 3.500v13a6.500 6.500 0 000-13z" fill="currentColor"/></svg>',
   stats:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16V9M10 16V4M16 16v-5"/></svg>',
   soundOn:
@@ -80,7 +83,7 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13.500 8l4 4M17.500 8l-4 4"/></svg>',
   dot: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg>',
   brand:
-    '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" fill="#35523B"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" stroke="#6F9569" stroke-width="2" stroke-linecap="round"/></svg>',
+    '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" style="fill:var(--color-forest)"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" style="stroke:var(--color-court-deep)" stroke-width="2" stroke-linecap="round"/></svg>',
 };
 
 const COURT_LINES =
@@ -94,7 +97,7 @@ const COURT_SVG =
   '<g class="court-lines" fill="none" stroke="var(--court-line)" stroke-width="0.7" stroke-linejoin="round">' +
   COURT_LINES +
   '</g>' +
-  '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke="#292B29" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
+  '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
   '</svg>';
 const BG_COURT =
   '<svg class="bg-court" viewBox="-4 -4 142 69" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="0.8">' +
@@ -221,6 +224,13 @@ function setupHTML() {
     '<span>Palong Palo</span></div>' +
     '<div class="actions">' +
     (App.S ? '<button class="btn sm quiet" data-act="resume">Back to session</button>' : '') +
+    '<button class="btn quiet icon" data-act="theme-cycle" aria-label="Theme: ' +
+    Theme.pref +
+    '" title="Theme: ' +
+    Theme.pref +
+    '">' +
+    (Theme.pref === 'dark' ? I.moon : Theme.pref === 'light' ? I.sun : I.auto) +
+    '</button>' +
     '<button class="btn quiet icon" data-act="sound" aria-label="Sound ' +
     (Sound.enabled ? 'on' : 'off') +
     '" aria-pressed="' +
@@ -887,6 +897,24 @@ function menuSheet() {
     '" aria-label="Sound" data-act="sound">' +
     (Sound.enabled ? 'On' : 'Off') +
     '</button></div></div>' +
+    '<div class="group"><h3>Theme</h3><div class="seg three" role="radiogroup" aria-label="Theme">' +
+    [
+      ['system', 'Auto'],
+      ['light', 'Light'],
+      ['dark', 'Dark'],
+    ]
+      .map(
+        ([v, l]) =>
+          '<button role="radio" aria-checked="' +
+          (Theme.pref === v) +
+          '" data-act="theme" data-v="' +
+          v +
+          '">' +
+          l +
+          '</button>',
+      )
+      .join('') +
+    '</div></div>' +
     '<div class="menu"><button class="btn" data-act="setup">Back to setup</button>' +
     '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
     '<p class="note">Each match is about ' +
@@ -1169,7 +1197,7 @@ function statsSheet() {
     tiles +
       '<div class="sbars">' +
       bars +
-      '</div><p class="note">Dark is played and logged, light is still to come.</p>',
+      '</div><p class="note">The solid part is played and logged. The rest is still to come.</p>',
   );
 }
 
@@ -1235,6 +1263,14 @@ function onAction(act, el) {
     }
     case 'stats':
       openSheet({ type: 'stats' }, el);
+      break;
+    case 'theme':
+      Theme.set(d.v);
+      render();
+      break;
+    case 'theme-cycle':
+      Theme.set(Theme.pref === 'system' ? 'light' : Theme.pref === 'light' ? 'dark' : 'system');
+      render();
       break;
     case 'sound':
       Sound.set(!Sound.enabled);

@@ -51,6 +51,13 @@
   --radius-pill: 999px;
   --shadow-card: 0 3px 14px rgb(41 43 41 / 5%);
   --shadow-popover: 0 8px 24px rgb(41 43 41 / 10%);
+  --shadow-seg: 0 1px 3px rgb(41 43 41 / 12%);
+  --scrim: rgb(41 43 41 / 30%);
+  --btn-hover: #2c4531;
+  --net: #292b29;
+  --toast-accent: #f1d0d5;
+  --tile-lo: #f8e6d8;
+  --bar-least: #c98a5e;
 
   --motion-fast: 140ms;
   --motion-standard: 220ms;
@@ -238,7 +245,7 @@ p {
   }
   .btn.primary:hover:not(:disabled) {
     border-color: var(--color-forest);
-    background: #2c4531;
+    background: var(--btn-hover);
   }
 }
 
@@ -380,7 +387,7 @@ p {
 }
 .seg button[aria-checked='true'] {
   background: var(--color-paper);
-  box-shadow: 0 1px 3px rgb(41 43 41 / 12%);
+  box-shadow: var(--shadow-seg);
 }
 .step {
   display: grid;
@@ -771,7 +778,7 @@ input[type='number'] {
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgb(41 43 41 / 30%);
+  background: var(--scrim);
   opacity: 0;
   transition: opacity var(--motion-standard) var(--ease-standard);
   z-index: 10;
@@ -1061,7 +1068,7 @@ input[type='number'] {
   min-height: 40px;
   border: 0;
   background: transparent;
-  color: var(--color-sakura);
+  color: var(--toast-accent);
   font-weight: 700;
   padding: 0 12px;
 }
@@ -1069,7 +1076,7 @@ input[type='number'] {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgb(255 254 250 / 40%);
+  border: 2px solid color-mix(in srgb, var(--color-paper) 40%, transparent);
   border-top-color: var(--color-paper);
   animation: spin 0.7s linear infinite;
 }
@@ -1678,7 +1685,7 @@ input[type='time'] {
   background: var(--color-sage);
 }
 .tile.lo {
-  background: #f8e6d8;
+  background: var(--tile-lo);
 }
 .sbars {
   display: grid;
@@ -1724,7 +1731,7 @@ input[type='time'] {
   background: var(--color-peach);
 }
 .sbar.least .d {
-  background: #c98a5e;
+  background: var(--bar-least);
 }
 .sbar .num {
   text-align: right;
@@ -1755,4 +1762,72 @@ input[type='time'] {
     transform: translateY(8px);
     visibility: hidden;
   }
+}
+
+/* ---------- net line (was a fixed color in the SVG) ---------- */
+.net {
+  stroke: var(--net);
+}
+
+/* ---------- dark theme ---------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-ivory: #141915;
+  --color-cream: #1b221c;
+  --color-paper: #212a23;
+  --color-ink: #ece9df;
+  --color-ink-muted: #a4ac9f;
+  --color-line: #2f3a31;
+
+  --color-sage: #2c4332;
+  --color-matcha: #7ea577;
+  --color-court: #4f7a4f;
+  --color-court-deep: #8fb487;
+  --color-forest: #a5c79c;
+  --color-sky: #3a5568;
+  --color-sakura: #f1d0d5;
+  --color-peach: #e8b08a;
+
+  --color-success: #7fbf86;
+  --color-warning: #e0b36a;
+  --color-danger: #e07a7a;
+  --color-focus: #7fb0dc;
+
+  --court-fill: #345a3a;
+  --court-line: #cfdccb;
+  --team-a: #2a4556;
+  --team-a-line: #5b8fab;
+  --team-b: #53343b;
+  --team-b-line: #b4707b;
+
+  --shadow-card: 0 3px 14px rgb(0 0 0 / 25%);
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 45%);
+  --shadow-seg: 0 1px 3px rgb(0 0 0 / 40%);
+  --scrim: rgb(0 0 0 / 55%);
+  --btn-hover: #bcd9b3;
+  --net: #e8efe4;
+  --toast-accent: #8a3d4a;
+  --tile-lo: #4a3a30;
+  --bar-least: #d79a6c;
+}
+
+.seg.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* stats bars need their own contrast in dark */
+:root[data-theme='dark'] .sbar .t {
+  background: #3b5842;
+}
+:root[data-theme='dark'] .sbar.most .t {
+  background: #4a7050;
+}
+:root[data-theme='dark'] .sbar.least .t {
+  background: #6a4b38;
+}
+:root[data-theme='dark'] .sbar .d {
+  background: #b4d6aa;
+}
+:root[data-theme='dark'] .sbar.least .d {
+  background: #f0b88f;
 }
