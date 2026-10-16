@@ -11,7 +11,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Match length:** set minutes per match (default 20). Games are to 15, capped at 17, best of 3.
 - **No waiting between courts:** when one court finishes first, picking its winner starts that court's next match right away with players who are free. A toast says who is up, with Undo.
 - **Fair match-ups:** everyone faces everyone as much as possible, with opponents prioritised over partners. Rest and play time is spread evenly.
-- **Late arrivals:** add someone mid-session from Players. They are scheduled in the later rounds and on Reshuffle, but are not given extra games to catch up with the others.
+- **Late arrivals:** add someone mid-session from Players. They are scheduled in the later rounds and when you Shuffle, but are not given extra games to catch up with the others.
 - **Edit any round:** tap a player to rest them, swap them with someone else, or take them out for the day. Rounds after the change rebuild.
 - **Court controls:** skip a court for a single round, close a court from now on, or reopen it.
 - **Change the length:** add one round or one hour, or delete a round.
@@ -22,13 +22,13 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
-- **Reshuffle:** regenerate the remaining rounds without touching finished matches.
+- **Shuffle:** a true reshuffle of the remaining rounds. It ignores who has played more or less so far, so someone you rested is not pushed back in to catch up. Finished matches are not touched.
 
 ## Using it
 
 1. On the setup screen, pick the players, number of courts, minutes per match and how long each court plays.
 2. Tap **Generate schedule**.
-3. On the schedule screen, use the top icons: Full schedule, Add a round, Reshuffle, More.
+3. On the schedule screen, use the top icons: Full schedule, Add a round, Shuffle, More.
 4. Use the minus icon on a court card to skip that court for the round you are viewing.
 5. Use the trash icon beside the match length to delete the current round.
 6. Tap **Pick winner** on a match when it ends, then **Next round**.

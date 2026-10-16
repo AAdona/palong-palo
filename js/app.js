@@ -517,7 +517,7 @@ function scheduleHTML() {
     '<button class="btn quiet icon" data-act="add-round" aria-label="Add a round" title="Add a round">' +
     I.roundplus +
     '</button>' +
-    '<button class="btn quiet icon" data-act="shuffle" aria-label="Reshuffle remaining rounds" title="Reshuffle remaining rounds">' +
+    '<button class="btn quiet icon" data-act="shuffle" aria-label="Shuffle remaining rounds" title="Shuffle remaining rounds">' +
     I.shuffle +
     '</button>' +
     '<button class="btn quiet icon" data-act="menu" aria-label="More" title="More">' +
@@ -1459,7 +1459,7 @@ function onAction(act, el) {
       break;
     }
     case 'shuffle':
-      mutate(() => buildFrom(S, curRound(S), 300), 'Remaining rounds reshuffled.');
+      mutate(() => buildFrom(S, curRound(S), 300, { fresh: true }), 'Remaining rounds shuffled.');
       break;
     case 'add-hour': {
       let n = 0;

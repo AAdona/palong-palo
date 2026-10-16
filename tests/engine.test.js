@@ -133,3 +133,22 @@ test('a late player is scheduled, but does not get extra games to catch up', () 
     assert.ok(g.Late <= Math.min(...others), 'late player caught up: ' + g.Late + ' vs ' + others.join(','));
   }
 });
+
+/* ---- shuffle is a real shuffle ---- */
+test('fresh shuffle ignores games played, so a player you rested is not pushed back in', () => {
+  let back = 0;
+  const runs = 60;
+  for (let i = 0; i < runs; i++) {
+    const S = E.newSession(cfg(2, 180), NAMES);
+    for (let r = 0; r < 3; r++) {
+      const rd = S.rounds[r];
+      if (!rd.rest.includes('Lee')) E.swapPlayers(S, r, 'Lee', rd.rest[0]);
+      S.rounds[r].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
+    }
+    E.buildFrom(S, E.curRound(S), 100, { fresh: true });
+    const cur = S.rounds[E.curRound(S)];
+    if (cur.matches.some((m) => m.a.concat(m.b).includes('Lee'))) back++;
+  }
+  /* 8 of 12 players play each round, so about two thirds. Anything near 100% means catch-up bias. */
+  assert.ok(back / runs < 0.9, 'Lee was put back in ' + back + ' of ' + runs + ' shuffles');
+});

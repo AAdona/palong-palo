@@ -212,13 +212,21 @@ function planSlots(wins, courts, minutes) {
   return { rounds, counts };
 }
 
-function buildFrom(S, from, attempts) {
+/* opts.fresh: a true shuffle. Past games played are ignored when choosing who plays and who rests,
+   so everyone starts level from this round. Partner and opponent variety still carries over. */
+function buildFrom(S, from, attempts, opts) {
   attempts = attempts || 200;
+  const fresh = !!(opts && opts.fresh);
+  const base = fresh ? {} : S.baseline || {};
   if (from >= S.totalRounds) {
     S.rounds = S.rounds.slice(0, S.totalRounds);
     return S;
   }
   const baseSt = statsFrom(S.rounds, from);
+  if (fresh) {
+    baseSt.played = {};
+    baseSt.lastPlayed = {};
+  }
   let best = null,
     bs = Infinity;
   for (let t = 0; t < attempts; t++) {
@@ -230,11 +238,11 @@ function buildFrom(S, from, attempts) {
       const kept = old ? old.matches.filter((m) => m.done || m.live) : [];
       kept.forEach((m) => addMatchStats(st, m, r));
       const avail = courtsFor(S, r);
-      const res = planRound(S.active, st, kept, avail.length, r, rnd, S.baseline || {});
+      const res = planRound(S.active, st, kept, avail.length, r, rnd, base);
       res.matches.forEach((m) => addMatchStats(st, m, r));
       built.push({ kept, res, avail });
     }
-    const sc = scoreStats(st, S.active, S.baseline);
+    const sc = scoreStats(st, S.active, base);
     if (sc < bs) {
       bs = sc;
       best = built;
