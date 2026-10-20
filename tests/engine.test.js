@@ -205,3 +205,53 @@ test('reshuffle rebuilds a match that was only queued early, but keeps started o
   const still = S.rounds[1].matches.find((m) => m.id === q.id);
   assert.ok(still && still.a.concat(still.b).join() === kept, 'a started match stays put');
 });
+
+/* ---- two kinds of shuffle ---- */
+const partnerRepeats = (S) => {
+  const c = {};
+  S.rounds.forEach((rd) =>
+    rd.matches.forEach((m) =>
+      [m.a, m.b].forEach((t) => {
+        const k = [...t].sort().join('|');
+        c[k] = (c[k] || 0) + 1;
+      }),
+    ),
+  );
+  return Object.values(c).reduce((s, n) => s + Math.max(0, n - 1), 0);
+};
+const shuffled = (mode) => {
+  const S = E.newSession(cfg(2, 180), NAMES);
+  for (let r = 0; r < 2; r++) S.rounds[r].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
+  E.reshuffle(S, 150, mode);
+  return S;
+};
+
+test('fresh partners repeats teammates less than a total shuffle', () => {
+  let fresh = 0,
+    random = 0;
+  const runs = 12;
+  for (let i = 0; i < runs; i++) {
+    fresh += partnerRepeats(shuffled('partners'));
+    random += partnerRepeats(shuffled('random'));
+  }
+  assert.ok(fresh / runs < random / runs, 'fresh ' + fresh / runs + ' vs random ' + random / runs);
+});
+
+test('both shuffles keep finished matches and keep games even', () => {
+  for (const mode of ['random', 'partners']) {
+    const S = E.newSession(cfg(2, 180), NAMES);
+    const first = S.rounds[0].matches.map((m) => m.id + ':' + m.a.concat(m.b).join());
+    S.rounds[0].matches.forEach((m) => E.setResult(S, m.id, 'b', []));
+    E.reshuffle(S, 150, mode);
+    assert.deepEqual(
+      S.rounds[0].matches.map((m) => m.id + ':' + m.a.concat(m.b).join()),
+      first,
+    );
+    const g = Object.values(games(S));
+    assert.ok(Math.max(...g) - Math.min(...g) <= 1, mode + ' games spread ' + g.join(','));
+    S.rounds.forEach((rd) => {
+      const seen = rd.matches.flatMap((m) => m.a.concat(m.b));
+      assert.equal(new Set(seen).size, seen.length);
+    });
+  }
+});

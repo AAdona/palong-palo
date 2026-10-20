@@ -26,7 +26,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
-- **Reshuffle:** regenerate the remaining rounds without touching finished matches.
+- **Two shuffles:** the shuffle button asks which one. **Total shuffle** gives random teams and opponents for every remaining round. **Fresh partners** pairs people who have been teammates the fewest times, then spreads opponents. Both keep games played even and leave finished and started matches alone.
 
 ## Using it
 

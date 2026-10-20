@@ -1,6 +1,12 @@
 /* ---------- scheduling engine ---------- */
-const W_PARTNER = 5,
-  W_OPP = 6;
+/* How much a repeat costs. `balanced` is the normal schedule: opponents are spread first.
+   `random` ignores who has played with or against whom. `partners` spreads teammates first. */
+const WEIGHTS = {
+  balanced: { p: 5, o: 6 },
+  random: { p: 0, o: 0 },
+  partners: { p: 20, o: 1 },
+};
+const weightsFor = (mode) => WEIGHTS[mode] || WEIGHTS.balanced;
 const hm = (s) => {
   const [h, m] = String(s || '09:00')
     .split(':')
@@ -91,7 +97,8 @@ function plansFor(n) {
   return (PLAN_CACHE[n] = out);
 }
 
-function bestPlan(players, st, rnd) {
+function bestPlan(players, st, rnd, W) {
+  W = W || WEIGHTS.balanced;
   const n = players.length,
     pl = players.slice();
   for (let i = n - 1; i > 0; i--) {
@@ -107,8 +114,8 @@ function bestPlan(players, st, rnd) {
   for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++) {
       const k = pk(pl[i], pl[j]);
-      P[i][j] = P[j][i] = W_PARTNER * (2 * (st.partner[k] || 0) + 1);
-      O[i][j] = O[j][i] = W_OPP * (2 * (st.opp[k] || 0) + 1);
+      P[i][j] = P[j][i] = W.p * (2 * (st.partner[k] || 0) + 1);
+      O[i][j] = O[j][i] = W.o * (2 * (st.opp[k] || 0) + 1);
     }
   let best = null,
     bs = Infinity;
@@ -137,7 +144,7 @@ function bestPlan(players, st, rnd) {
   );
 }
 
-function planRound(active, st, kept, courts, r, rnd, base) {
+function planRound(active, st, kept, courts, r, rnd, base, W) {
   const keptSet = new Set();
   kept.forEach((m) => [...m.a, ...m.b].forEach((p) => keptSet.add(p)));
   const pool = active.filter((p) => !keptSet.has(p));
@@ -155,13 +162,14 @@ function planRound(active, st, kept, courts, r, rnd, base) {
     .map((x) => x.p);
   const playing = ranked.slice(0, need * 4);
   const rest = ranked.slice(need * 4);
-  return { matches: bestPlan(playing, st, rnd), rest };
+  return { matches: bestPlan(playing, st, rnd, W), rest };
 }
 
-function scoreStats(st, names, base) {
+function scoreStats(st, names, base, W) {
+  W = W || WEIGHTS.balanced;
   let s = 0;
-  for (const k in st.partner) s += W_PARTNER * st.partner[k] ** 2;
-  for (const k in st.opp) s += W_OPP * st.opp[k] ** 2;
+  for (const k in st.partner) s += W.p * st.partner[k] ** 2;
+  for (const k in st.opp) s += W.o * st.opp[k] ** 2;
   const pl = names.map((n) => (st.played[n] || 0) + ((base && base[n]) || 0));
   const mean = pl.reduce((a, b) => a + b, 0) / (pl.length || 1);
   s += 60 * pl.reduce((a, b) => a + (b - mean) ** 2, 0);
@@ -204,8 +212,9 @@ function planSlots(wins, courts, minutes) {
   return { rounds, counts };
 }
 
-function buildFrom(S, from, attempts) {
+function buildFrom(S, from, attempts, mode) {
   attempts = attempts || 200;
+  const W = weightsFor(mode);
   if (from >= S.totalRounds) {
     S.rounds = S.rounds.slice(0, S.totalRounds);
     return S;
@@ -222,11 +231,11 @@ function buildFrom(S, from, attempts) {
       const kept = old ? old.matches.filter((m) => m.done || m.live) : [];
       kept.forEach((m) => addMatchStats(st, m, r));
       const avail = courtsFor(S, r);
-      const res = planRound(S.active, st, kept, avail.length, r, rnd, S.baseline || {});
+      const res = planRound(S.active, st, kept, avail.length, r, rnd, S.baseline || {}, W);
       res.matches.forEach((m) => addMatchStats(st, m, r));
       built.push({ kept, res, avail });
     }
-    const sc = scoreStats(st, S.active, S.baseline);
+    const sc = scoreStats(st, S.active, S.baseline, W);
     if (sc < bs) {
       bs = sc;
       best = built;
@@ -475,7 +484,8 @@ function courtState(S, c) {
 /* A court finished before the other one. Start that court's next match now, using only
    players who are free. Returns the match that was started, or null if none could be.
    The match is flagged `live`, so later rebuilds keep it where it is. */
-function startEarly(S, r, c) {
+function startEarly(S, r, c, mode) {
+  const W = weightsFor(mode);
   const q = r + 1;
   if (r !== curRound(S) || q >= S.rounds.length) return null;
   const here = S.rounds[r],
@@ -501,11 +511,11 @@ function startEarly(S, r, c) {
   let best = null,
     bestScore = Infinity;
   for (let t = 0; t < 25; t++) {
-    const res = planRound(free, st, [], 1, q, rngFrom((Math.random() * 4294967296) >>> 0), S.baseline || {});
+    const res = planRound(free, st, [], 1, q, rngFrom((Math.random() * 4294967296) >>> 0), S.baseline || {}, W);
     if (!res.matches.length) return null;
     const trial = cloneStats(st);
     addMatchStats(trial, res.matches[0], q);
-    const score = scoreStats(trial, S.active, S.baseline);
+    const score = scoreStats(trial, S.active, S.baseline, W);
     if (score < bestScore) {
       bestScore = score;
       best = res.matches[0];
@@ -522,14 +532,14 @@ function startEarly(S, r, c) {
     live: true,
   };
   next.matches = next.matches.filter((m) => m.court !== c).concat(started);
-  buildFrom(S, q, 120);
+  buildFrom(S, q, 120, mode);
   return findMatch(S, started.id).m;
 }
 
 /* The Reshuffle button. Keeps finished and started matches. A match that was only queued
    early on a free court is not being played yet, so it is rebuilt with the rest. Courts
    that were already running ahead are then queued again, using only players who are free. */
-function reshuffle(S, attempts) {
+function reshuffle(S, attempts, mode) {
   const cur = curRound(S);
   const queued = [];
   S.rounds.forEach((rd, q) =>
@@ -540,10 +550,10 @@ function reshuffle(S, attempts) {
       }
     }),
   );
-  buildFrom(S, cur, attempts || 300);
+  buildFrom(S, cur, attempts || 300, mode);
   queued.forEach((c) => {
     const here = S.rounds[cur] && S.rounds[cur].matches.find((m) => m.court === c);
-    if (here && here.done) startEarly(S, cur, c);
+    if (here && here.done) startEarly(S, cur, c, mode);
   });
   return S;
 }

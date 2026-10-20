@@ -550,7 +550,7 @@ function scheduleHTML() {
     '<button class="btn quiet icon" data-act="add-round" aria-label="Add a round" title="Add a round">' +
     I.roundplus +
     '</button>' +
-    '<button class="btn quiet icon" data-act="shuffle" aria-label="Reshuffle remaining rounds" title="Reshuffle remaining rounds">' +
+    '<button class="btn quiet icon" data-act="shuffle" aria-label="Shuffle remaining rounds" title="Shuffle remaining rounds">' +
     I.shuffle +
     '</button>' +
     '<button class="btn quiet icon" data-act="menu" aria-label="More" title="More">' +
@@ -1066,6 +1066,29 @@ function historySheet() {
   return sheetShell('Saved results', 'All sessions on this phone', body, 'tall');
 }
 
+function shuffleSheet() {
+  const opt = (mode, title, text) =>
+    '<button class="cand" data-act="shuffle-do" data-mode="' +
+    mode +
+    '"><b>' +
+    title +
+    '</b><small>' +
+    text +
+    '</small></button>';
+  return sheetShell(
+    'Shuffle remaining rounds',
+    'Finished and started matches stay as they are',
+    '<div class="cands" style="grid-template-columns:1fr">' +
+      opt('random', 'Total shuffle', 'Random teams and opponents in every remaining round. Games played still stay even.') +
+      opt(
+        'partners',
+        'Fresh partners',
+        'Pairs people who have been teammates the fewest times, or never. Opponents come second.',
+      ) +
+      '</div>',
+  );
+}
+
 function sheetHTML() {
   const sh = App.sheet;
   if (!sh) return '';
@@ -1076,6 +1099,7 @@ function sheetHTML() {
   if (sh.type === 'menu') return menuSheet();
   if (sh.type === 'roster') return rosterSheet(sh);
   if (sh.type === 'history') return historySheet();
+  if (sh.type === 'shuffle') return shuffleSheet();
   if (sh.type === 'stats') return statsSheet();
   return '';
 }
@@ -1678,8 +1702,16 @@ function onAction(act, el) {
       break;
     }
     case 'shuffle':
-      mutate(() => reshuffle(S, 300), 'Remaining rounds reshuffled.');
+      openSheet({ type: 'shuffle' }, el);
       break;
+    case 'shuffle-do': {
+      const mode = d.mode === 'partners' ? 'partners' : 'random';
+      mutate(
+        () => reshuffle(S, 300, mode),
+        mode === 'partners' ? 'Remaining rounds rebuilt for fresh partners.' : 'Remaining rounds shuffled.',
+      );
+      break;
+    }
     case 'add-hour': {
       let n = 0;
       mutate(
