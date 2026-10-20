@@ -1878,3 +1878,23 @@ html.theme-fade *::after {
   width: 20px;
   height: 20px;
 }
+
+/* ---------- start button, rename, saved results ---------- */
+.rrow.edit {
+  gap: 6px;
+}
+.rrow.edit input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rk.rk4 {
+  grid-template-columns: 28px minmax(0, 1fr) 52px 44px;
+}
+.histlink {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+.mh-a .btn.primary svg {
+  width: 14px;
+  height: 14px;
+}
