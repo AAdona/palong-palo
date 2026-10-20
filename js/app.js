@@ -1,5 +1,6 @@
 /* ---------- app ---------- */
 const KEY = 'monday-doubles.v1';
+const HKEY = 'palong-palo.history.v1';
 const DEFAULT_ROSTER = [
   'Gelay',
   'Adi',
@@ -11,7 +12,6 @@ const DEFAULT_ROSTER = [
   'Eula',
   'Yuyi',
   'JJ',
-  'Angel',
 ];
 const App = {
   view: 'setup',
@@ -19,6 +19,7 @@ const App = {
   picked: new Set(DEFAULT_ROSTER),
   cfg: { courts: 2, minutes: 20, wins: [{ len: 180 }, { len: 180 }] },
   S: null,
+  history: [],
   vr: 0,
   sheet: null,
   sheetNew: false,
@@ -81,6 +82,7 @@ const I = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13 7.500a3.500 3.500 0 010 5M15.500 5.500a6.500 6.500 0 010 9"/></svg>',
   soundOff:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8v4h3l4 3.500v-11L6 8H3z"/><path d="M13.500 8l4 4M17.500 8l-4 4"/></svg>',
+  play: '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.500 4.500v11l9-5.500z"/></svg>',
   dot: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="3.2" fill="currentColor"/></svg>',
   brand:
     '<svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="8" cy="20" r="4.2" style="fill:var(--color-forest)"/><path d="M11 17L22 6M12.500 19.500L24 11M9 14L17 4" style="stroke:var(--color-court-deep)" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -116,18 +118,37 @@ function save() {
         S: App.S,
         view: App.view,
         vr: App.vr,
+        mig: 1,
       }),
     );
   } catch (e) {
     /* storage unavailable */
   }
 }
+function saveHistory() {
+  try {
+    localStorage.setItem(HKEY, JSON.stringify(App.history));
+  } catch (e) {
+    /* storage unavailable */
+  }
+}
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HKEY);
+    if (raw) App.history = Archive.cleanList(JSON.parse(raw));
+  } catch (e) {
+    /* ignore broken history */
+  }
+}
 function load() {
+  loadHistory();
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return;
     const d = JSON.parse(raw);
     if (Array.isArray(d.roster) && d.roster.length) App.roster = d.roster.map(String);
+    /* One time: Angel is no longer on the default list. Saves from before that still have her. */
+    if (d.mig !== 1) App.roster = App.roster.filter((n) => n !== 'Angel');
     if (Array.isArray(d.picked)) App.picked = new Set(d.picked.filter((n) => App.roster.includes(n)));
     if (d.cfg && typeof d.cfg === 'object') {
       App.cfg = Object.assign(App.cfg, d.cfg);
@@ -275,6 +296,9 @@ function setupHTML() {
     '</div>' +
     '</div>' +
     sum +
+    '<button class="btn quiet histlink" data-act="open-history">' +
+    I.stats +
+    'Saved results and backup</button>' +
     '</main>' +
     '<footer class="foot"><button class="btn primary" data-act="generate"' +
     (!ok || App.busy ? ' disabled' : '') +
@@ -291,9 +315,11 @@ function matchText(m) {
 function matchCard(m, r, cur, idx, canClose) {
   let st;
   if (m.done) st = ['done', 'Done'];
-  else if (r === cur || m.live) st = ['now', 'Playing now'];
+  else if (m.started) st = ['now', 'Playing now'];
+  else if (r === cur || m.live) st = ['', 'Up next'];
   else if (r < cur) st = ['', 'Not logged'];
-  else st = ['', r === cur + 1 ? 'Up next' : 'Later'];
+  else st = ['', 'Later'];
+  const canStart = !m.done && !m.started && (r === cur || m.live);
   const pos = { a: ['26.4%', '73.6%'] };
   const pill = (name, side, k) => {
     const left = side === 'a' ? '26.4%' : '73.6%',
@@ -353,11 +379,18 @@ function matchCard(m, r, cur, idx, canClose) {
         I.court +
         '</button>'
       : '') +
-    '<button class="btn sm" data-act="result" data-id="' +
-    m.id +
-    '">' +
-    (m.done ? 'Change winner' : 'Pick winner') +
-    '</button></div></header>' +
+    (canStart
+      ? '<button class="btn sm primary" data-act="start" data-id="' +
+        m.id +
+        '">' +
+        I.play +
+        'Start game</button>'
+      : '<button class="btn sm" data-act="result" data-id="' +
+        m.id +
+        '">' +
+        (m.done ? 'Change winner' : 'Pick winner') +
+        '</button>') +
+    '</div></header>' +
     '<div class="court-slot"><div class="court">' +
     COURT_SVG +
     pill(m.a[0], 'a', 0) +
@@ -449,7 +482,7 @@ function scheduleHTML() {
         closed.push(
           '<span>Court ' +
             m.court +
-            ' is playing: ' +
+            (m.started ? ' is playing: ' : ' is next: ') +
             esc(matchText(m)) +
             '</span>' +
             '<button class="btn sm quiet" data-act="goto" data-r="' +
@@ -876,7 +909,8 @@ function playersSheet() {
     '<form id="f-late" class="addrow"><input id="latename" type="text" placeholder="Add a late player" autocomplete="off" aria-label="Late player name" maxlength="20"><button class="btn" type="submit">' +
     I.plus +
     'Add</button></form>' +
-    '<p class="note">Switching someone Out takes them off the rest of the schedule. A late player joins from the next round.</p>';
+    '<p class="note">Switching someone Out takes them off the rest of the schedule. A late player joins from the next round.</p>' +
+    '<button class="btn quiet" data-act="open-roster">Rename or edit players list</button>';
   return sheetShell('Players', 'Round ' + (cur + 1) + ' of ' + S.rounds.length, body);
 }
 
@@ -919,7 +953,8 @@ function menuSheet() {
     '" aria-label="Sound" data-act="sound">' +
     (Sound.enabled ? 'On' : 'Off') +
     '</button></div></div>' +
-    '<div class="menu"><button class="btn" data-act="setup">Back to setup</button>' +
+    '<div class="menu"><button class="btn" data-act="open-history">Saved results and backup</button>' +
+    '<button class="btn" data-act="setup">Back to setup</button>' +
     '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
     '<p class="note">Each match is about ' +
     S.minutes +
@@ -931,26 +966,104 @@ function menuSheet() {
   return sheetShell('Session', S.active.length + ' players', body);
 }
 
-function rosterSheet() {
+function rosterSheet(sh) {
   const rows = App.roster
-    .map(
-      (n) =>
-        '<div class="rrow"><span>' +
-        esc(n) +
-        '</span><button class="btn sm quiet danger" data-act="roster-del" data-name="' +
-        esc(n) +
-        '" aria-label="Remove ' +
-        esc(n) +
-        '">Remove</button></div>',
+    .map((n) =>
+      n === sh.editing
+        ? '<form id="f-rename" class="rrow edit" data-from="' +
+          esc(n) +
+          '"><input id="renameinp" type="text" value="' +
+          esc(n) +
+          '" autocomplete="off" maxlength="20" aria-label="New name for ' +
+          esc(n) +
+          '"><button class="btn sm primary" type="submit">Save</button>' +
+          '<button class="btn sm quiet" type="button" data-act="rename-cancel">Cancel</button></form>'
+        : '<div class="rrow"><span>' +
+          esc(n) +
+          '</span><div class="mh-a"><button class="btn sm quiet" data-act="rename-start" data-name="' +
+          esc(n) +
+          '" aria-label="Rename ' +
+          esc(n) +
+          '">Rename</button><button class="btn sm quiet danger" data-act="roster-del" data-name="' +
+          esc(n) +
+          '" aria-label="Remove ' +
+          esc(n) +
+          '">Remove</button></div></div>',
     )
     .join('');
   return sheetShell(
     'Players list',
-    'Add a guest or remove someone',
+    'Add a guest, rename or remove someone',
     '<form id="f-roster" class="addrow"><input id="rname" type="text" placeholder="Name" autocomplete="off" aria-label="New player name" maxlength="20"><button class="btn primary" type="submit">Add</button></form><div>' +
       rows +
-      '</div>',
+      '</div>' +
+      '<p class="note">Renaming also updates the current schedule and your saved results.</p>',
   );
+}
+
+function historySheet() {
+  const all = Archive.allSessions(App.history, App.S);
+  const st = Archive.computeStats(all);
+  let body;
+  if (!st.matches) {
+    body =
+      '<p class="note">No results saved yet. Every winner you pick counts here, and a session is kept when you start a new one.</p>';
+  } else {
+    let place = 0,
+      prev = null;
+    const rows = st.players
+      .map((p, i) => {
+        const key = p.w + '-' + p.l;
+        if (key !== prev) {
+          place = i + 1;
+          prev = key;
+        }
+        return (
+          '<div class="rk rk4" role="row"><span class="num">' +
+          place +
+          '</span><span class="nm">' +
+          esc(p.name) +
+          '</span><span class="num">' +
+          p.w +
+          '-' +
+          p.l +
+          '</span><span class="num">' +
+          p.pct +
+          '%</span></div>'
+        );
+      })
+      .join('');
+    body =
+      '<div class="tiles"><div class="tile"><span>Sessions</span><b>' +
+      st.sessions +
+      '</b></div><div class="tile"><span>Matches logged</span><b>' +
+      st.matches +
+      '</b></div></div>' +
+      (st.bestDuo
+        ? '<div class="tiles one"><div class="tile hi"><span>Best duo</span><b>' +
+          st.bestDuo.names.map(esc).join(' + ') +
+          '</b><small>' +
+          st.bestDuo.w +
+          ' wins in ' +
+          st.bestDuo.g +
+          ' games together</small></div></div>'
+        : '') +
+      '<div class="group"><h3>All-time wins and losses</h3><div class="rank" role="table" aria-label="All-time results">' +
+      rows +
+      '</div>' +
+      (App.S && Archive.compactSession(App.S)
+        ? '<p class="note">Includes the session in progress.</p>'
+        : '') +
+      '</div>';
+  }
+  body +=
+    '<div class="group"><h3>Backup</h3><p class="note">Results are kept in this browser only. Save a backup file now and then. Importing one adds its sessions and skips the ones already here, so it also moves results to another phone.</p>' +
+    '<div class="cands"><button class="btn" data-act="export">Save backup</button>' +
+    '<button class="btn" data-act="import">Import backup</button></div>' +
+    '<button class="btn quiet danger" data-act="ask-clear-history"' +
+    (App.history.length ? '' : ' disabled') +
+    '>Clear saved results</button></div>';
+  return sheetShell('Saved results', 'All sessions on this phone', body, 'tall');
 }
 
 function sheetHTML() {
@@ -961,7 +1074,8 @@ function sheetHTML() {
   if (sh.type === 'players') return playersSheet();
   if (sh.type === 'full') return fullSheet();
   if (sh.type === 'menu') return menuSheet();
-  if (sh.type === 'roster') return rosterSheet();
+  if (sh.type === 'roster') return rosterSheet(sh);
+  if (sh.type === 'history') return historySheet();
   if (sh.type === 'stats') return statsSheet();
   return '';
 }
@@ -990,6 +1104,13 @@ function render() {
       );
       App.sheetNew = false;
       sh.focus({ preventScroll: true });
+    }
+  }
+  if (App.sheet && App.sheet.editing) {
+    const ri = document.getElementById('renameinp');
+    if (ri) {
+      ri.focus({ preventScroll: true });
+      ri.select();
     }
   }
   if (App.confirm) {
@@ -1229,7 +1350,7 @@ function statsSheet() {
       bars +
       '</div><p class="note">The solid part is played and logged. The rest is still to come.' +
       lateNote +
-      '</p>',
+      '</p><button class="btn quiet" data-act="open-history">All-time results and backup</button>',
   );
 }
 
@@ -1243,6 +1364,103 @@ function goRound(r, dir) {
   save();
   render();
 }
+/* Keeps the session in the saved results. Called before it is replaced or discarded. */
+function archiveCurrent() {
+  const rec = App.S && Archive.compactSession(App.S);
+  if (!rec) return;
+  App.history = Archive.upsert(App.history, rec);
+  saveHistory();
+}
+function renameProblem(from, to) {
+  if (!to) return 'Type a name first.';
+  const low = to.toLowerCase();
+  const names = App.roster.concat(App.S ? allNames(App.S) : []);
+  if (names.some((n) => n !== from && n.toLowerCase() === low)) return to + ' is already on the list.';
+  if (Archive.renameConflict(App.history, from, to))
+    return from + ' and ' + to + ' have played in the same match, so they cannot share a name.';
+  return null;
+}
+function renamePlayer(from, to) {
+  const sw = (n) => (n === from ? to : n);
+  App.roster = App.roster.map(sw);
+  App.picked = new Set([...App.picked].map(sw));
+  if (App.S) renameInSession(App.S, from, to);
+  Archive.renameInRecords(App.history, from, to);
+  App.undo = null; /* the saved undo copy still has the old name */
+  save();
+  saveHistory();
+}
+const dateStamp = () => new Date().toISOString().slice(0, 10);
+async function exportBackup() {
+  const data = Archive.buildExport(App.history, App.S, App.roster);
+  if (!data.sessions.length) {
+    showToast('No results to save yet.', false);
+    return;
+  }
+  const text = JSON.stringify(data);
+  const name = 'palong-palo-backup-' + dateStamp() + '.json';
+  try {
+    const file = new File([text], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Palong Palo backup' });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  showToast('Backup saved to your downloads.', false);
+}
+/* One hidden file picker for the whole app. It is built once, so a closed sheet cannot lose it. */
+const importInput = document.createElement('input');
+importInput.type = 'file';
+importInput.accept = 'application/json,.json';
+importInput.setAttribute('aria-hidden', 'true');
+importInput.tabIndex = -1;
+importInput.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+document.body.appendChild(importInput);
+importInput.addEventListener('change', async () => {
+  const f = importInput.files && importInput.files[0];
+  importInput.value = '';
+  if (!f) return;
+  let text;
+  try {
+    text = await f.text();
+  } catch (e) {
+    showToast('Could not read that file.', false);
+    return;
+  }
+  const res = Archive.parseExport(text);
+  if (res.error) {
+    showToast(res.error, false);
+    return;
+  }
+  const m = Archive.mergeSessions(App.history, res.sessions);
+  App.history = m.list;
+  res.roster.forEach((n) => {
+    if (!App.roster.some((r) => r.toLowerCase() === n.toLowerCase())) {
+      App.roster.push(n);
+      App.picked.add(n);
+    }
+  });
+  save();
+  saveHistory();
+  render();
+  const bits = [];
+  if (m.added) bits.push(m.added + (m.added === 1 ? ' session' : ' sessions') + ' added');
+  if (m.updated) bits.push(m.updated + ' updated');
+  if (m.skipped) bits.push(m.skipped + ' already here');
+  if (res.skipped) bits.push(res.skipped + ' unreadable');
+  showToast(bits.length ? 'Imported: ' + bits.join(', ') + '.' : 'Nothing to import.', false);
+});
+
 function onAction(act, el) {
   const d = el.dataset,
     S = App.S,
@@ -1328,6 +1546,7 @@ function onAction(act, el) {
       render();
       setTimeout(() => {
         const names = App.roster.filter((n) => App.picked.has(n));
+        archiveCurrent();
         App.S = newSession(App.cfg, names);
         App.view = 'schedule';
         App.vr = 0;
@@ -1518,10 +1737,11 @@ function onAction(act, el) {
     case 'ask-new':
       askConfirm({
         title: 'Start a new session?',
-        body: 'This discards the current schedule and all results.',
-        label: 'Discard session',
+        body: 'This clears the current schedule. Winners you logged stay in your saved results.',
+        label: 'Start new session',
         act: 'new-session',
         run: () => {
+          archiveCurrent();
           App.S = null;
           App.sheet = null;
           App.view = 'setup';
@@ -1529,6 +1749,52 @@ function onAction(act, el) {
           hideToast(true);
           Sound.warn();
           save();
+          render();
+        },
+      });
+      break;
+    case 'start': {
+      const f = S && findMatch(S, d.id);
+      if (!f || f.m.done || f.m.started) break;
+      App.undo = JSON.stringify(S);
+      startMatch(S, d.id);
+      Sound.ok();
+      save();
+      render();
+      showToast('Court ' + f.m.court + ' started.', true);
+      break;
+    }
+    case 'rename-start':
+      if (sh && sh.type === 'roster') {
+        sh.editing = d.name;
+        render();
+      }
+      break;
+    case 'rename-cancel':
+      if (sh) {
+        sh.editing = null;
+        render();
+      }
+      break;
+    case 'open-history':
+      openSheet({ type: 'history' }, el);
+      break;
+    case 'export':
+      exportBackup();
+      break;
+    case 'import':
+      importInput.click();
+      break;
+    case 'ask-clear-history':
+      askConfirm({
+        title: 'Clear saved results?',
+        body: 'This removes every saved session from this phone. Save a backup first if you want to keep them. The session in progress is not affected.',
+        label: 'Clear results',
+        act: 'clear-history',
+        run: () => {
+          App.history = [];
+          saveHistory();
+          Sound.warn();
           render();
         },
       });
@@ -1580,6 +1846,23 @@ $app.addEventListener('submit', (e) => {
     render();
     const again = document.getElementById('rname');
     if (again) again.focus();
+  } else if (e.target.id === 'f-rename') {
+    const from = e.target.dataset.from,
+      to = document.getElementById('renameinp').value.trim().replace(/\s+/g, ' ');
+    if (to === from) {
+      App.sheet.editing = null;
+      render();
+      return;
+    }
+    const problem = renameProblem(from, to);
+    if (problem) {
+      showToast(problem, false);
+      return;
+    }
+    renamePlayer(from, to);
+    App.sheet.editing = null;
+    render();
+    showToast(from + ' is now ' + to + '.', false);
   } else if (e.target.id === 'f-late') {
     const inp = document.getElementById('latename'),
       name = inp.value.trim();

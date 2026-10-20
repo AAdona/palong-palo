@@ -15,10 +15,14 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Edit any round:** tap a player to rest them, swap them with someone else, or take them out for the day. Rounds after the change rebuild.
 - **Court controls:** skip a court for a single round, close a court from now on, or reopen it.
 - **Change the length:** add one round or one hour, or delete a round.
+- **Start game:** a match is "Up next" until you press **Start game**. Then it shows "Playing now" and is kept in place if you reshuffle. Undo is in the toast.
 - **Results:** pick the winning team per match. No scores are tracked.
+- **Saved results:** logged winners are kept when you start a new session. **Saved results and backup** (on the setup screen and in the ⋯ menu) shows all-time wins, losses, win rate and the best duo.
+- **Backup and import:** save all results to a `.json` file, and import it on the same or another phone. Importing adds new sessions and skips ones already saved, so importing twice is safe.
+- **Rename players:** in the players list (Add on the setup screen, or Players in a session). A rename updates the roster, the current schedule and saved results.
 - **Full schedule:** a compact list of every round plus an overall winner.
 - **Dark mode:** Auto (follows the phone), Light or Dark. Pick it in the ⋯ menu, or with the sun/moon button on the setup screen. Remembered per device.
-- **Stats:** who has the most and fewest games, with a bar per player.
+- **Stats:** who has the most and fewest games, with a bar per player, plus a link to the all-time results.
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
@@ -58,6 +62,7 @@ palong-palo/
   vercel.json             Headers, caching, security policy
   css/style.css           All styles (ivory and matcha palette from DESIGN.md)
   js/engine.js            Scheduling and edit logic, no DOM code
+  js/history.js           Saved results, backup file, import and all-time stats, no DOM code
   js/app.js               UI, state, sheets, events
   js/theme.js             Light, dark or auto theme, applied before first paint
   js/sound.js             Tap sounds and small buzzes (Web Audio, no files)
@@ -65,6 +70,7 @@ palong-palo/
   icons/                  favicon.ico, favicon.svg, app icons, share image
   scripts/set-site-url.js Swaps the placeholder domain for yours
   tests/engine.test.js    Engine tests
+  tests/history.test.js   Saved results, backup and stats tests
 ```
 
 No framework, no dependencies, no build step. The files are served as they are.
@@ -110,5 +116,6 @@ Edit the files and push. The service worker fetches from the network first and f
 ## Limits
 
 - Offline support needs the site to be served over HTTPS (Vercel does this) and opened once while online.
-- Data lives in one browser on one device. It is not shared between phones.
+- Data lives in one browser on one device. It is not shared between phones. Use Save backup and Import backup to move results.
+- Names are the identity. If a player is renamed on one phone, importing an older backup that still has the old name brings the old name back as a separate player.
 - Google Fonts load from the network. The layout falls back to system fonts if they cannot load.

@@ -1,12 +1,6 @@
 /* ---------- scheduling engine ---------- */
-const LEVELS = { angel: 0 };
-const levelOf = (n) => {
-  const v = LEVELS[String(n).trim().toLowerCase()];
-  return v === undefined ? 1 : v;
-};
 const W_PARTNER = 5,
-  W_OPP = 6,
-  W_BAL = 3;
+  W_OPP = 6;
 const hm = (s) => {
   const [h, m] = String(s || '09:00')
     .split(':')
@@ -105,8 +99,7 @@ function bestPlan(players, st, rnd) {
     [pl[i], pl[j]] = [pl[j], pl[i]];
   }
   const P = [],
-    O = [],
-    L = pl.map(levelOf);
+    O = [];
   for (let i = 0; i < n; i++) {
     P.push(new Array(n).fill(0));
     O.push(new Array(n).fill(0));
@@ -132,8 +125,7 @@ function bestPlan(players, st, rnd) {
         O[a0][b0] +
         O[a0][b1] +
         O[a1][b0] +
-        O[a1][b1] +
-        W_BAL * Math.abs(L[a0] + L[a1] - L[b0] - L[b1]);
+        O[a1][b1];
     }
     if (c < bs) {
       bs = c;
@@ -265,6 +257,8 @@ function newSession(cfg, names) {
   const start = Math.min(...wins.map((w) => w.start)),
     end = Math.max(...wins.map((w) => w.end));
   const S = {
+    id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    created: Date.now(),
     active: names.slice(),
     courts: cfg.courts,
     minutes: cfg.minutes,
@@ -532,6 +526,35 @@ function startEarly(S, r, c) {
   return findMatch(S, started.id).m;
 }
 
+/* Marks a match as started: the players are on court now. Until then a match is only
+   "up next". It is also flagged `live`, so later rebuilds keep it exactly where it is. */
+function startMatch(S, id) {
+  const f = findMatch(S, id);
+  if (!f || f.m.done || f.m.started) return null;
+  f.m.started = true;
+  f.m.live = true;
+  f.m.startedAt = Date.now();
+  return f.m;
+}
+
+/* Renames a player everywhere in a session: active list, every match, rests, late-player baseline. */
+function renameInSession(S, from, to) {
+  const sw = (x) => (x === from ? to : x);
+  S.active = S.active.map(sw);
+  S.rounds.forEach((rd) => {
+    rd.matches.forEach((m) => {
+      m.a = m.a.map(sw);
+      m.b = m.b.map(sw);
+    });
+    rd.rest = rd.rest.map(sw);
+  });
+  if (S.baseline && Object.prototype.hasOwnProperty.call(S.baseline, from)) {
+    S.baseline[to] = S.baseline[from];
+    delete S.baseline[from];
+  }
+  return S;
+}
+
 function setResult(S, id, winner, sets) {
   for (const rd of S.rounds)
     for (const m of rd.matches)
@@ -562,6 +585,8 @@ function findMatch(S, id) {
 if (typeof module !== 'undefined')
   module.exports = {
     startEarly,
+    startMatch,
+    renameInSession,
     setCourtAt,
     deleteRound,
     isOffAt,
@@ -579,5 +604,4 @@ if (typeof module !== 'undefined')
     curRound,
     setResult,
     findMatch,
-    levelOf,
   };

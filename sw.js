@@ -1,5 +1,5 @@
 /* Service worker: network first, cache fallback. Bump VERSION to force a fresh cache. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'palong-palo-' + VERSION;
 const SHELL = [
   '/',
@@ -7,6 +7,7 @@ const SHELL = [
   '/js/theme.js',
   '/js/sound.js',
   '/js/engine.js',
+  '/js/history.js',
   '/js/app.js',
   '/js/pwa.js',
   '/manifest.webmanifest',

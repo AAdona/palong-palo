@@ -133,3 +133,45 @@ test('a late player is scheduled, but does not get extra games to catch up', () 
     assert.ok(g.Late <= Math.min(...others), 'late player caught up: ' + g.Late + ' vs ' + others.join(','));
   }
 });
+
+/* ---- start button and rename ---- */
+test('a new session has an id and a start time', () => {
+  const S = E.newSession(cfg(2, 180), NAMES);
+  assert.ok(S.id && S.created);
+});
+
+test('starting a match flags it, keeps it through a reshuffle and cannot be repeated', () => {
+  const S = E.newSession(cfg(2, 180), NAMES);
+  const m = S.rounds[0].matches[0];
+  assert.equal(m.started, undefined);
+  assert.ok(E.startMatch(S, m.id));
+  assert.equal(m.started, true);
+  assert.equal(m.live, true);
+  assert.equal(E.startMatch(S, m.id), null, 'second start does nothing');
+  const players = m.a.concat(m.b).join();
+  E.buildFrom(S, 0, 100);
+  const again = S.rounds[0].matches.find((x) => x.id === m.id);
+  assert.ok(again, 'started match survives a rebuild');
+  assert.equal(again.a.concat(again.b).join(), players);
+});
+
+test('a finished match cannot be started', () => {
+  const S = E.newSession(cfg(2, 180), NAMES);
+  const m = S.rounds[0].matches[0];
+  E.setResult(S, m.id, 'a', []);
+  assert.equal(E.startMatch(S, m.id), null);
+});
+
+test('renaming a player updates matches, rests, the active list and the late baseline', () => {
+  const S = E.newSession(cfg(2, 180), NAMES);
+  E.playerIn(S, 'Late');
+  E.renameInSession(S, 'Late', 'Latecomer');
+  E.renameInSession(S, 'Ana', 'Anna');
+  assert.ok(S.active.includes('Anna') && !S.active.includes('Ana'));
+  assert.ok(S.active.includes('Latecomer') && !S.active.includes('Late'));
+  assert.ok(S.baseline.Latecomer !== undefined && S.baseline.Late === undefined);
+  const names = E.summarize(S).per;
+  assert.ok(names.Anna && !names.Ana);
+  const all = S.rounds.flatMap((r) => r.matches.flatMap((m) => m.a.concat(m.b)).concat(r.rest));
+  assert.ok(!all.includes('Ana') && !all.includes('Late'));
+});
