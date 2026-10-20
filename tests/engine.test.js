@@ -175,3 +175,33 @@ test('renaming a player updates matches, rests, the active list and the late bas
   const all = S.rounds.flatMap((r) => r.matches.flatMap((m) => m.a.concat(m.b)).concat(r.rest));
   assert.ok(!all.includes('Ana') && !all.includes('Late'));
 });
+
+/* ---- reshuffle ---- */
+test('reshuffle rebuilds a match that was only queued early, but keeps started ones', () => {
+  let changed = 0;
+  for (let i = 0; i < 20; i++) {
+    const S = E.newSession(cfg(2, 180), NAMES);
+    const c1 = S.rounds[0].matches.find((m) => m.court === 1);
+    E.setResult(S, c1.id, 'a', []);
+    const queued = E.startEarly(S, 0, 1);
+    const before = queued.a.concat(queued.b).join();
+    E.reshuffle(S, 300);
+    const now = S.rounds[1].matches.find((m) => m.court === 1);
+    if (now.a.concat(now.b).join() !== before) changed++;
+    /* the court is queued again with free players only, so nobody is double booked */
+    assert.equal(now.live, true, 'court 1 is running ahead again');
+    const busy = inPlay(S);
+    assert.equal(new Set(busy).size, busy.length, 'double booked after reshuffle');
+  }
+  assert.ok(changed >= 10, 'queued match should usually change, changed ' + changed + '/20');
+
+  const S = E.newSession(cfg(2, 180), NAMES);
+  const c1 = S.rounds[0].matches.find((m) => m.court === 1);
+  E.setResult(S, c1.id, 'a', []);
+  const q = E.startEarly(S, 0, 1);
+  E.startMatch(S, q.id);
+  const kept = q.a.concat(q.b).join();
+  E.reshuffle(S, 300);
+  const still = S.rounds[1].matches.find((m) => m.id === q.id);
+  assert.ok(still && still.a.concat(still.b).join() === kept, 'a started match stays put');
+});

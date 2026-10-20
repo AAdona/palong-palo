@@ -1678,7 +1678,7 @@ function onAction(act, el) {
       break;
     }
     case 'shuffle':
-      mutate(() => buildFrom(S, curRound(S), 300), 'Remaining rounds reshuffled.');
+      mutate(() => reshuffle(S, 300), 'Remaining rounds reshuffled.');
       break;
     case 'add-hour': {
       let n = 0;

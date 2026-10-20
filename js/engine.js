@@ -526,6 +526,28 @@ function startEarly(S, r, c) {
   return findMatch(S, started.id).m;
 }
 
+/* The Reshuffle button. Keeps finished and started matches. A match that was only queued
+   early on a free court is not being played yet, so it is rebuilt with the rest. Courts
+   that were already running ahead are then queued again, using only players who are free. */
+function reshuffle(S, attempts) {
+  const cur = curRound(S);
+  const queued = [];
+  S.rounds.forEach((rd, q) =>
+    rd.matches.forEach((m) => {
+      if (m.live && !m.started && !m.done) {
+        if (q === cur + 1) queued.push(m.court);
+        delete m.live;
+      }
+    }),
+  );
+  buildFrom(S, cur, attempts || 300);
+  queued.forEach((c) => {
+    const here = S.rounds[cur] && S.rounds[cur].matches.find((m) => m.court === c);
+    if (here && here.done) startEarly(S, cur, c);
+  });
+  return S;
+}
+
 /* Marks a match as started: the players are on court now. Until then a match is only
    "up next". It is also flagged `live`, so later rebuilds keep it exactly where it is. */
 function startMatch(S, id) {
@@ -586,6 +608,7 @@ if (typeof module !== 'undefined')
   module.exports = {
     startEarly,
     startMatch,
+    reshuffle,
     renameInSession,
     setCourtAt,
     deleteRound,
