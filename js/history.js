@@ -43,19 +43,21 @@ const Archive = (() => {
     return Array.isArray(list) ? list.slice(0, MAX_SESSIONS).map(validateRecord).filter(Boolean) : [];
   }
 
-  /* Builds the record for a live session, keeping only matches with a logged winner.
-     Gives the session an id and start time the first time, so repeat saves share one id. */
+  /* Builds the record for a live session, keeping only matches with a logged winner, in the
+     order they finished. Gives the session an id and start time the first time, so repeat
+     saves share one id. `c` is the number painted on the court. */
   function compactSession(S) {
-    if (!S || !Array.isArray(S.rounds)) return null;
+    if (!S || !Array.isArray(S.matches)) return null;
     if (!S.id) S.id = newId();
     if (!S.created) S.created = Date.now();
-    const matches = [];
-    S.rounds.forEach((rd, r) =>
-      (rd.matches || []).forEach((m) => {
-        if (m.done && (m.winner === 'a' || m.winner === 'b'))
-          matches.push({ r, c: m.court, a: m.a.slice(), b: m.b.slice(), w: m.winner });
-      }),
-    );
+    const label = (slot) => {
+      const n = Number(S.courts && S.courts[slot - 1] && S.courts[slot - 1].label);
+      return Number.isFinite(n) ? n : slot;
+    };
+    const matches = S.matches
+      .filter((m) => m.done && (m.winner === 'a' || m.winner === 'b'))
+      .sort((x, y) => (x.doneAt || 0) - (y.doneAt || 0) || x.n - y.n)
+      .map((m, i) => ({ r: i, c: label(m.c), a: m.a.slice(), b: m.b.slice(), w: m.winner }));
     return matches.length ? validateRecord({ id: S.id, created: S.created, matches }) : null;
   }
 
