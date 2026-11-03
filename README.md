@@ -1,55 +1,50 @@
 # Palong Palo
 
-A mobile-first web app that builds and manages badminton doubles match-ups for a regular group. Pick who is playing, generate a schedule, then edit it as the session goes. Later rounds rebuild automatically.
+A mobile-first web app that makes badminton doubles match-ups for a regular group. Pick who is playing, start the session, and each court gets its next match the moment its game finishes. Nothing is planned ahead, so a court never waits on players who are still on the other court.
 
 Installable on an iPhone or Android home screen and works offline after the first visit. Everything is saved in the browser (localStorage), so a refresh does not lose the session.
 
 ## Features
 
 - **Roster:** tap to pick who is attending, add guests, remove names.
-- **Courts:** 1 or 2 courts. Each court has its own length. A shorter court joins later and finishes together with the longer one.
-- **Match length:** set minutes per match (default 20). Games are to 15, capped at 17, best of 3.
-- **No waiting between courts:** when one court finishes first, picking its winner starts that court's next match right away with players who are free. A toast says who is up, with Undo.
-- **Fair match-ups:** everyone faces everyone as much as possible, with opponents prioritised over partners. Rest and play time is spread evenly.
-- **Late arrivals:** add someone mid-session from Players. They are scheduled in the later rounds and on Reshuffle, but are not given extra games to catch up with the others.
-- **Edit any round:** tap a player to rest them, swap them with someone else, or take them out for the day. Rounds after the change rebuild.
-- **Court controls:** skip a court for a single round, close a court from now on, or reopen it.
-- **Change the length:** add one round or one hour, or delete a round.
-- **Start game:** a match is "Up next" until you press **Start game**. Then it shows "Playing now" and is kept in place if you reshuffle. Undo is in the toast.
-- **Results:** pick the winning team per match. No scores are tracked.
+- **Courts:** 1 or 2 courts. Name them with the numbers painted on your courts, like 5 and 6. Numbers only, 1 to 99. You can change them mid-session from the ⋯ menu.
+- **Live matches, no future rounds:** only the matches on court are shown. When a court finishes, only that court gets a new match, made from players who are not on any court right now. The other court keeps playing untouched.
+- **Played list:** finished games show under **Played**, newest first. Tap one to change its winner.
+- **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates and opponents are avoided, opponents first.
+- **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
+- **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
+- **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.
+- **Court controls:** close a court so it makes no new matches (its current game finishes), or open it again.
+- **Start game:** a match is "Up next" until you press **Start game**. Then it shows "Playing now" and is kept in place if you shuffle. Undo is in the toast.
+- **Results:** pick the winning team once a game is started. No scores are tracked. A winner can be cleared while its court has not moved on.
 - **Saved results:** logged winners are kept when you start a new session. **Saved results and backup** (on the setup screen and in the ⋯ menu) shows all-time wins, losses, win rate and the best duo.
 - **Backup and import:** save all results to a `.json` file, and import it on the same or another phone. Importing adds new sessions and skips ones already saved, so importing twice is safe.
-- **Rename players:** in the players list (Add on the setup screen, or Players in a session). A rename updates the roster, the current schedule and saved results.
-- **Full schedule:** a compact list of every round plus an overall winner.
+- **Rename players:** in the players list (Add on the setup screen, or Players in a session). A rename updates the roster, the current session and saved results.
+- **Standings:** wins and losses for the session, with who is leading.
 - **Dark mode:** Auto (follows the phone), Light or Dark. Pick it in the ⋯ menu, or with the sun/moon button on the setup screen. Remembered per device.
 - **Stats:** who has the most and fewest games, with a bar per player, plus a link to the all-time results.
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
-- **Safe deletes:** deleting a round, removing a player or discarding a session asks first.
+- **Safe deletes:** removing a player or starting a new session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
-- **Two shuffles:** the shuffle button asks which one. **Total shuffle** gives random teams and opponents for every remaining round. **Fresh partners** pairs people who have been teammates the fewest times, then spreads opponents. Both keep games played even and leave finished and started matches alone.
+- **Two shuffles:** the shuffle button remakes the matches that are only up next, and asks which kind. **Total shuffle** gives random teams and opponents. **Fresh partners** pairs people who have been teammates the fewest times, then spreads opponents. Players with fewer games still come first, and started or finished games are left alone.
 
 ## Using it
 
-1. On the setup screen, pick the players, number of courts, minutes per match and how long each court plays.
-2. Tap **Generate schedule**.
-3. On the schedule screen, use the top icons: Full schedule, Add a round, Reshuffle, More.
-4. Use the minus icon on a court card to skip that court for the round you are viewing.
-5. Use the trash icon beside the match length to delete the current round.
-6. Tap **Pick winner** on a match when it ends, then **Next round**.
-7. Swipe left or right to move between rounds.
+1. On the setup screen, pick the players, 1 or 2 courts, and the court numbers.
+2. Tap **Start session**. Each court gets a match, shown as **Up next**.
+3. When the players walk on, tap **Start game**. The match shows **Playing now**.
+4. When a game ends, tap **Pick winner**. That court gets its next match right away, using only players who are not on court.
+5. Use the top icons for Stats, Shuffle and More. Use the bottom buttons for Players and Standings.
 
-## How scheduling works
+## How matches are made
 
-The scheduler is greedy and randomised, with many restarts, and keeps the best result.
+A match is made for a court only when the court is free, using only players who are not in any other match.
 
-1. Players with fewer games played are more likely to play, and long waits get a bonus.
-2. The chosen players are split into matches by checking every possible split.
-3. Each split is scored: repeat partners cost less than repeat opponents, so opponents are spread out first. Uneven games played are penalised.
-4. The lowest-cost plan across all attempts wins.
+1. Players are ranked: fewer games played comes first, then the longest rest.
+2. The few most deserving players are tried in every combination of four.
+3. Each combination is split into two teams every possible way and scored. Repeat partners and repeat opponents cost more, and opponents cost more than partners. The lowest cost wins.
 
-When something changes, finished matches are kept and the rest is regenerated from the chosen round.
-
-With 12 players on 2 courts for about 9 rounds, expect around 6 games each, near full opponent coverage and roughly half to two thirds partner coverage. One court gives far fewer games, so coverage is lower.
+Because courts finish at different times, games stay close to even but are not forced equal. With 12 players on 2 courts, expect near full opponent coverage and most partners met over a few hours.
 
 ## Project layout
 

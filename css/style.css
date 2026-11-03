@@ -1898,3 +1898,71 @@ html.theme-fade *::after {
   width: 14px;
   height: 14px;
 }
+
+/* ---------- live courts ---------- */
+.main.live {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+  margin: -2px;
+  padding-bottom: 8px;
+}
+.main.live > * {
+  flex: 0 0 auto;
+}
+.main.live .courts .match,
+.main.live .courts .court-slot {
+  flex: 0 0 auto;
+}
+.match.idle {
+  min-height: 0;
+}
+.idle-note {
+  padding: 2px 4px 8px;
+}
+.rchip .gc {
+  margin-left: 6px;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-muted);
+}
+.played {
+  display: grid;
+  gap: 6px;
+}
+.played h3 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  padding: 2px 2px 0;
+}
+.urow.played {
+  width: 100%;
+}
+.urow.played .pm {
+  color: var(--color-ink);
+}
+.urow.played .tm.l {
+  color: var(--color-ink-muted);
+}
+.cnums {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.cnum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.cnum input {
+  width: 64px;
+  text-align: center;
+  font-weight: 600;
+}
+.footnav.two {
+  grid-template-columns: 1fr 1fr;
+}

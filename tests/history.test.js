@@ -4,11 +4,14 @@ const E = require('../js/engine.js');
 const A = require('../js/history.js');
 
 const NAMES = ['Ana', 'Ben', 'Cy', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal'];
-const cfg = { courts: 2, minutes: 20, wins: [{ len: 60 }, { len: 60 }] };
+const cfg = { courts: 2, labels: ['5', '6'] };
 const played = () => {
   const S = E.newSession(cfg, NAMES);
-  S.rounds[0].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
-  S.rounds[1].matches.forEach((m) => E.setResult(S, m.id, 'b', []));
+  for (let i = 0; i < 4; i++) {
+    const m = S.matches.filter((x) => !x.done)[0];
+    E.setResult(S, m.id, i % 2 ? 'b' : 'a');
+    E.fill(S);
+  }
   return S;
 };
 const rec = (id, w = 'a', extra = []) => ({
@@ -24,6 +27,16 @@ test('only matches with a logged winner are saved, and the id stays the same', (
   assert.equal(a.matches.length, 4);
   assert.equal(a.id, S.id);
   assert.equal(b.id, a.id);
+  assert.deepEqual(
+    [...new Set(a.matches.map((m) => m.c))].sort(),
+    [5, 6],
+    'court numbers are saved as painted on the court',
+  );
+  assert.deepEqual(
+    a.matches.map((m) => m.r),
+    [0, 1, 2, 3],
+    'matches are kept in the order they finished',
+  );
   const fresh = E.newSession(cfg, NAMES);
   assert.equal(A.compactSession(fresh), null, 'a session with no results is not saved');
 });

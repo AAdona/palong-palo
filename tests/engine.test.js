@@ -3,255 +3,414 @@ const assert = require('node:assert/strict');
 const E = require('../js/engine.js');
 
 const NAMES = ['Ana', 'Ben', 'Cy', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal', 'Ivy', 'Jo', 'Kim', 'Lee'];
-const cfg = (courts, len) => ({ courts, minutes: 20, wins: [{ len }, { len }] });
+const cfg = (courts, labels) => ({ courts, labels: labels || ['1', '2'] });
+const open = (S) => S.matches.filter((m) => !m.done);
+const playersOf = (m) => m.a.concat(m.b);
+const finish = (S, m, w) => {
+  E.setResult(S, m.id, w || 'a');
+  return E.fill(S);
+};
+const noDoubleBooking = (S) => {
+  const seen = open(S).flatMap(playersOf);
+  assert.equal(new Set(seen).size, seen.length, 'someone is in two matches at once');
+  open(S).forEach((m) => assert.equal(new Set(playersOf(m)).size, 4));
+};
 const games = (S) => {
   const g = Object.fromEntries(S.active.map((n) => [n, 0]));
-  S.rounds.forEach((r) => r.matches.forEach((m) => m.a.concat(m.b).forEach((n) => g[n]++)));
+  S.matches.forEach((m) => playersOf(m).forEach((n) => (g[n] = (g[n] || 0) + 1)));
   return g;
 };
 
-test('builds 9 rounds for 3 hours at 20 minutes', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  assert.equal(S.rounds.length, 9);
+/* ---- starting a session ---- */
+test('a new session makes one match per court and nothing ahead', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  assert.equal(S.matches.length, 2);
+  assert.deepEqual(S.matches.map((m) => m.c).sort(), [1, 2]);
+  assert.ok(S.matches.every((m) => !m.started && !m.done));
+  noDoubleBooking(S);
+  assert.ok(S.id && S.created);
 });
 
-test('nobody plays twice in a round and every match has four players', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  for (const r of S.rounds) {
-    const seen = r.matches.flatMap((m) => m.a.concat(m.b));
-    assert.equal(new Set(seen).size, seen.length);
-    r.matches.forEach((m) => assert.equal(m.a.length + m.b.length, 4));
+test('one court makes one match', () => {
+  const S = E.newSession(cfg(1), NAMES);
+  assert.equal(S.matches.length, 1);
+  assert.equal(S.courts.length, 1);
+});
+
+test('court numbers are kept as typed', () => {
+  const S = E.newSession(cfg(2, ['5', '6']), NAMES);
+  assert.deepEqual(
+    S.courts.map((c) => c.label),
+    ['5', '6'],
+  );
+  assert.equal(E.courtLabel(S, 2), '6');
+  assert.equal(E.newSession(cfg(1, ['7', '8']), NAMES).courts.length, 1);
+});
+
+test('with fewer than 8 players only one court runs at a time', () => {
+  const S = E.newSession(cfg(2), NAMES.slice(0, 7));
+  assert.equal(S.matches.length, 1);
+  assert.equal(E.pendingOn(S, 2), null);
+  const made = finish(S, S.matches[0]);
+  assert.equal(made.length, 1);
+  noDoubleBooking(S);
+});
+
+test('a court waits when fewer than 4 players are free, and fills when more are', () => {
+  const S = E.newSession(cfg(2), NAMES.slice(0, 8));
+  const c1 = E.pendingOn(S, 1),
+    c2 = E.pendingOn(S, 2);
+  E.startMatch(S, c1.id);
+  E.startMatch(S, c2.id);
+  E.playerOut(S, c1.a[0], null); /* leaves, but finishes the game on court */
+  assert.equal(finish(S, c1).length, 0, 'only 3 are free, so court 1 waits');
+  assert.equal(E.pendingOn(S, 1), null);
+  const made = finish(S, c2);
+  assert.equal(made.length, 1, '7 players left, so one court can run once court 2 is free too');
+  noDoubleBooking(S);
+  assert.ok(!S.matches.filter((m) => !m.done).flatMap(playersOf).includes(c1.a[0]));
+});
+
+test('fewer than 4 players makes no match', () => {
+  const S = E.newSession(cfg(2), NAMES.slice(0, 3));
+  assert.equal(S.matches.length, 0);
+});
+
+/* ---- the main rule: a finished court gets a match from free players only ---- */
+test('when one court finishes, only that court gets a new match, without anyone still playing', () => {
+  for (let run = 0; run < 40; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    const c2 = E.pendingOn(S, 2),
+      c1 = E.pendingOn(S, 1);
+    E.startMatch(S, c1.id);
+    E.startMatch(S, c2.id);
+    const made = finish(S, c1);
+    assert.equal(made.length, 1);
+    assert.equal(made[0].c, 1);
+    assert.equal(S.matches.length, 3, 'no rounds were made ahead');
+    assert.ok(playersOf(made[0]).every((p) => !playersOf(c2).includes(p)), 'used a player still on court 2');
+    assert.equal(E.pendingOn(S, 2), c2, 'court 2 is untouched');
+    noDoubleBooking(S);
   }
 });
 
-test('games played stay within one of each other', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const g = Object.values(games(S));
-  assert.ok(Math.max(...g) - Math.min(...g) <= 1);
+test('the players who rested are brought in first', () => {
+  for (let run = 0; run < 25; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    const c1 = E.pendingOn(S, 1);
+    const resting = S.active.filter((p) => !open(S).flatMap(playersOf).includes(p));
+    const made = finish(S, c1);
+    assert.ok(resting.every((p) => playersOf(made[0]).includes(p)), 'a rested player was left out');
+  }
 });
 
-test('adding a round and an hour extends the session', () => {
-  const S = E.newSession(cfg(2, 120), NAMES);
-  const before = S.rounds.length;
-  E.extendBy(S, 20);
-  assert.equal(S.rounds.length, before + 1);
-  E.extendBy(S, 60);
-  assert.equal(S.rounds.length, before + 4);
+test('a full session never double books anyone, even when courts finish in a random order', () => {
+  for (let run = 0; run < 12; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    for (let i = 0; i < 40; i++) {
+      const m = open(S)[Math.floor(Math.random() * open(S).length)];
+      finish(S, m, Math.random() < 0.5 ? 'a' : 'b');
+      noDoubleBooking(S);
+      assert.ok(open(S).length <= 2);
+    }
+  }
 });
 
-test('skipping one court for one round leaves other rounds alone', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  E.setCourtAt(S, 2, 3, false);
-  assert.equal(S.rounds[3].matches.length, 1);
-  assert.equal(S.rounds[2].matches.length, 2);
-  assert.equal(S.rounds[4].matches.length, 2);
-  E.setCourtAt(S, 2, 3, true);
-  assert.equal(S.rounds[3].matches.length, 2);
+test('games stay within one of each other when the courts finish in turn', () => {
+  for (let run = 0; run < 12; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    for (let i = 0; i < 40; i++) finish(S, open(S).sort((x, y) => x.n - y.n)[0]);
+    const g = Object.values(games(S));
+    assert.ok(Math.max(...g) - Math.min(...g) <= 1, 'games spread too wide: ' + g.join(','));
+  }
 });
 
-test('deleting a round shortens the session and keeps results', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const first = S.rounds[0].matches[0];
-  E.setResult(S, first.id, 'a', []);
-  assert.ok(E.deleteRound(S, 4));
-  assert.equal(S.rounds.length, 8);
-  assert.equal(E.findMatch(S, first.id).m.winner, 'a');
+test('opponents and partners are spread out over a session', () => {
+  let opp = 0,
+    partner = 0,
+    runs = 10;
+  for (let run = 0; run < runs; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    for (let i = 0; i < 24; i++) finish(S, open(S)[i % open(S).length]);
+    const sm = E.summarize(S);
+    opp += sm.oppPct;
+    partner += sm.partnerPct;
+  }
+  assert.ok(opp / runs >= 80, 'opponent coverage ' + opp / runs);
+  assert.ok(partner / runs >= 40, 'partner coverage ' + partner / runs);
 });
 
-test('cannot delete the last remaining round', () => {
-  const S = E.newSession(cfg(1, 20), NAMES.slice(0, 4));
-  assert.equal(S.rounds.length, 1);
-  assert.equal(E.deleteRound(S, 0), false);
+/* ---- start button ---- */
+test('a match can be started once, and a finished one cannot', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const m = E.pendingOn(S, 1);
+  assert.ok(E.startMatch(S, m.id));
+  assert.equal(m.started, true);
+  assert.ok(m.startedAt);
+  assert.equal(E.startMatch(S, m.id), null);
+  finish(S, m);
+  assert.equal(E.startMatch(S, m.id), null);
 });
 
-/* ---- early start when one court finishes first ---- */
-const inPlay = (S) => {
-  /* players in matches that are being played right now: pending matches of the current round, plus live ones */
-  const cur = E.curRound(S);
-  const set = [];
-  S.rounds.forEach((rd, r) =>
-    rd.matches.forEach((m) => {
-      if (!m.done && (r === cur || m.live)) set.push(...m.a, ...m.b);
+/* ---- shuffle ---- */
+test('shuffle keeps started and finished matches and rebuilds the ones up next', () => {
+  let changed = 0;
+  for (let run = 0; run < 20; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    const c1 = E.pendingOn(S, 1),
+      c2 = E.pendingOn(S, 2);
+    E.startMatch(S, c1.id);
+    const before = playersOf(c2).join();
+    E.reroll(S, 'random');
+    assert.equal(E.pendingOn(S, 1), c1, 'started match stays');
+    const now = E.pendingOn(S, 2);
+    assert.ok(now.c === 2 && !now.started);
+    if (playersOf(now).join() !== before) changed++;
+    noDoubleBooking(S);
+  }
+  assert.ok(changed >= 10, 'up next should usually change, changed ' + changed + '/20');
+});
+
+test('shuffle makes a match for an empty court and never uses players on court', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  E.startMatch(S, E.pendingOn(S, 1).id);
+  E.startMatch(S, E.pendingOn(S, 2).id);
+  assert.deepEqual(E.reroll(S, 'partners'), []);
+  assert.equal(S.matches.length, 2);
+});
+
+const partnerRepeats = (S) => {
+  const c = {};
+  S.matches.forEach((m) =>
+    [m.a, m.b].forEach((t) => {
+      const k = [...t].sort().join('|');
+      c[k] = (c[k] || 0) + 1;
     }),
   );
-  return set;
+  return Object.values(c).reduce((s, n) => s + Math.max(0, n - 1), 0);
 };
-
-test('court 2 starts its next match early with only free players', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const c2 = S.rounds[0].matches.find((m) => m.court === 2);
-  E.setResult(S, c2.id, 'a', []);
-  const started = E.startEarly(S, 0, 2);
-  assert.ok(started, 'a match should start');
-  assert.equal(started.court, 2);
-  assert.equal(started.live, true);
-  const busy = inPlay(S);
-  assert.equal(new Set(busy).size, busy.length, 'nobody is in two matches at once');
+test('fresh partners repeats teammates less than a total shuffle', () => {
+  const play = (mode) => {
+    const S = E.newSession(cfg(2), NAMES);
+    for (let i = 0; i < 8; i++) {
+      finish(S, open(S)[0]);
+      E.reroll(S, mode);
+    }
+    return partnerRepeats(S);
+  };
+  let fresh = 0,
+    random = 0;
+  const runs = 15;
+  for (let i = 0; i < runs; i++) {
+    fresh += play('partners');
+    random += play('random');
+  }
+  assert.ok(fresh < random, 'fresh ' + fresh / runs + ' vs random ' + random / runs);
 });
 
-test('early starts never double-book anyone and keep games even', () => {
-  for (let run = 0; run < 15; run++) {
-    const S = E.newSession(cfg(2, 180), NAMES);
-    let guard = 0;
-    while (S.rounds.some((rd) => rd.matches.some((m) => !m.done)) && guard++ < 200) {
-      const cur = E.curRound(S);
-      const pending = [];
-      S.rounds.forEach((rd, r) =>
-        rd.matches.forEach((m) => {
-          if (!m.done && (r === cur || m.live)) pending.push(m);
-        }),
-      );
-      if (!pending.length) break;
-      /* finish a random pending match, sometimes the second court first */
-      const m = pending[Math.floor(Math.random() * pending.length)];
-      E.setResult(S, m.id, 'a', []);
-      const r = E.findMatch(S, m.id).r;
-      if (!S.rounds[r].matches.every((x) => x.done)) E.startEarly(S, r, m.court);
-      const busy = inPlay(S);
-      assert.equal(new Set(busy).size, busy.length, 'double booked in run ' + run);
-      S.rounds.forEach((rd) => {
-        const seen = rd.matches.flatMap((x) => x.a.concat(x.b));
-        assert.equal(new Set(seen).size, seen.length, 'duplicate player in a round');
-      });
-    }
-    const g = Object.values(games(S));
-    assert.ok(Math.max(...g) - Math.min(...g) <= 2, 'games spread too wide: ' + g.join(','));
+/* ---- results ---- */
+test('a result can be taken back when the court has not moved on, and the queued match is removed', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1);
+  E.startMatch(S, c1.id);
+  finish(S, c1);
+  const next = E.pendingOn(S, 1);
+  assert.ok(next && next !== c1);
+  assert.equal(E.canReopen(S, c1.id), true);
+  assert.ok(E.reopen(S, c1.id));
+  assert.equal(c1.done, false);
+  assert.equal(E.pendingOn(S, 1), c1);
+  assert.ok(!S.matches.includes(next), 'queued match was removed');
+  noDoubleBooking(S);
+});
+
+test('a result cannot be taken back once the court started its next match', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1);
+  finish(S, c1);
+  E.startMatch(S, E.pendingOn(S, 1).id);
+  assert.equal(E.canReopen(S, c1.id), false);
+  assert.equal(E.reopen(S, c1.id), false);
+});
+
+test('a result cannot be taken back if one of its players is already in the other court match', () => {
+  for (let run = 0; run < 30; run++) {
+    const S = E.newSession(cfg(2), NAMES);
+    const c1 = E.pendingOn(S, 1),
+      c2 = E.pendingOn(S, 2);
+    finish(S, c1);
+    const made = finish(S, c2);
+    const clash = made.some((m) => playersOf(m).some((p) => playersOf(c1).includes(p)));
+    if (clash) assert.equal(E.canReopen(S, c1.id), false);
   }
 });
 
-/* ---- someone arrives late ---- */
-test('a late player is scheduled, but does not get extra games to catch up', () => {
+test('changing a winner keeps the finish order', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const m = E.pendingOn(S, 1);
+  finish(S, m, 'a');
+  const at = m.doneAt;
+  E.setResult(S, m.id, 'b');
+  assert.equal(m.winner, 'b');
+  assert.equal(m.doneAt, at);
+});
+
+/* ---- edits ---- */
+test('swap a player with a free player or with a player in the other match up next', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1),
+    c2 = E.pendingOn(S, 2);
+  const free = E.freePlayers(S)[0];
+  const p = c1.a[0];
+  assert.ok(E.swapPlayers(S, p, free));
+  assert.ok(c1.a.includes(free) && E.freePlayers(S).includes(p));
+  const q = c2.b[1];
+  assert.ok(E.swapPlayers(S, free, q));
+  assert.ok(c1.a.includes(q) && c2.b.includes(free));
+  noDoubleBooking(S);
+});
+
+test('a player in a started match cannot be swapped, and a player on court cannot be pulled in', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1),
+    c2 = E.pendingOn(S, 2);
+  E.startMatch(S, c1.id);
+  assert.equal(E.swapPlayers(S, c1.a[0], E.freePlayers(S)[0]), false);
+  assert.equal(E.swapPlayers(S, c2.a[0], c1.b[0]), false);
+  assert.equal(E.swapPlayers(S, c2.a[0], 'Nobody'), false);
+});
+
+test('out for today: a free player steps in, or the match is made again without them', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1);
+  const out = c1.a[0],
+    sub = E.freePlayers(S)[0];
+  E.playerOut(S, out, sub);
+  assert.ok(c1.a.includes(sub) && !S.active.includes(out));
+  const out2 = E.pendingOn(S, 2).a[0];
+  E.playerOut(S, out2, null);
+  assert.ok(!E.pendingOn(S, 2).a.includes(out2) && !E.pendingOn(S, 2).b.includes(out2));
+  noDoubleBooking(S);
+});
+
+test('out for today leaves a match that is already on court alone', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1);
+  E.startMatch(S, c1.id);
+  const who = c1.a[0];
+  E.playerOut(S, who, null);
+  assert.equal(E.pendingOn(S, 1), c1);
+  assert.ok(playersOf(c1).includes(who));
+  assert.ok(!S.active.includes(who));
+  finish(S, c1);
+  const all = E.pendingOn(S, 1) ? playersOf(E.pendingOn(S, 1)) : [];
+  assert.ok(!all.includes(who), 'someone who left is back on court');
+});
+
+test('a late player is scheduled but does not get extra games to catch up', () => {
   for (let run = 0; run < 8; run++) {
-    const S = E.newSession(cfg(2, 180), NAMES.slice(0, 11));
-    /* play out the first 3 rounds */
-    for (let r = 0; r < 3; r++) S.rounds[r].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
+    const S = E.newSession(cfg(2), NAMES.slice(0, 11));
+    for (let i = 0; i < 8; i++) finish(S, open(S)[0]);
     E.playerIn(S, 'Late');
-    E.buildFrom(S, E.curRound(S), 300); /* the Reshuffle button */
+    for (let i = 0; i < 30; i++) finish(S, open(S)[i % open(S).length]);
     const g = games(S);
-    assert.ok(g.Late >= 3, 'late player should be in the schedule, got ' + g.Late);
     const others = NAMES.slice(0, 11).map((n) => g[n]);
+    assert.ok(g.Late >= 3, 'late player should get games, got ' + g.Late);
     assert.ok(g.Late <= Math.min(...others), 'late player caught up: ' + g.Late + ' vs ' + others.join(','));
   }
 });
 
-/* ---- start button and rename ---- */
-test('a new session has an id and a start time', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  assert.ok(S.id && S.created);
-});
-
-test('starting a match flags it, keeps it through a reshuffle and cannot be repeated', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const m = S.rounds[0].matches[0];
-  assert.equal(m.started, undefined);
-  assert.ok(E.startMatch(S, m.id));
-  assert.equal(m.started, true);
-  assert.equal(m.live, true);
-  assert.equal(E.startMatch(S, m.id), null, 'second start does nothing');
-  const players = m.a.concat(m.b).join();
-  E.buildFrom(S, 0, 100);
-  const again = S.rounds[0].matches.find((x) => x.id === m.id);
-  assert.ok(again, 'started match survives a rebuild');
-  assert.equal(again.a.concat(again.b).join(), players);
-});
-
-test('a finished match cannot be started', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const m = S.rounds[0].matches[0];
-  E.setResult(S, m.id, 'a', []);
-  assert.equal(E.startMatch(S, m.id), null);
-});
-
-test('renaming a player updates matches, rests, the active list and the late baseline', () => {
-  const S = E.newSession(cfg(2, 180), NAMES);
+test('a late player fills a court that was waiting for players', () => {
+  const S = E.newSession(cfg(2), NAMES.slice(0, 7));
+  assert.equal(S.matches.length, 1);
   E.playerIn(S, 'Late');
+  assert.equal(S.matches.length, 2);
+  noDoubleBooking(S);
+});
+
+test('closing a court drops a match not started, keeps a started one, and opening fills it', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const c1 = E.pendingOn(S, 1);
+  E.startMatch(S, c1.id);
+  E.setCourtOpen(S, 1, false);
+  E.setCourtOpen(S, 2, false);
+  assert.equal(E.pendingOn(S, 1), c1, 'started match stays');
+  assert.equal(E.pendingOn(S, 2), null, 'queued match was dropped');
+  finish(S, c1);
+  assert.equal(E.pendingOn(S, 1), null, 'a closed court makes no new match');
+  E.setCourtOpen(S, 2, true);
+  assert.ok(E.pendingOn(S, 2));
+  noDoubleBooking(S);
+});
+
+test('renaming a player updates matches, the active list and the late baseline', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  E.playerIn(S, 'Late');
+  finish(S, open(S)[0]);
   E.renameInSession(S, 'Late', 'Latecomer');
   E.renameInSession(S, 'Ana', 'Anna');
   assert.ok(S.active.includes('Anna') && !S.active.includes('Ana'));
-  assert.ok(S.active.includes('Latecomer') && !S.active.includes('Late'));
   assert.ok(S.baseline.Latecomer !== undefined && S.baseline.Late === undefined);
   const names = E.summarize(S).per;
   assert.ok(names.Anna && !names.Ana);
-  const all = S.rounds.flatMap((r) => r.matches.flatMap((m) => m.a.concat(m.b)).concat(r.rest));
+  const all = S.matches.flatMap(playersOf);
   assert.ok(!all.includes('Ana') && !all.includes('Late'));
 });
 
-/* ---- reshuffle ---- */
-test('reshuffle rebuilds a match that was only queued early, but keeps started ones', () => {
-  let changed = 0;
-  for (let i = 0; i < 20; i++) {
-    const S = E.newSession(cfg(2, 180), NAMES);
-    const c1 = S.rounds[0].matches.find((m) => m.court === 1);
-    E.setResult(S, c1.id, 'a', []);
-    const queued = E.startEarly(S, 0, 1);
-    const before = queued.a.concat(queued.b).join();
-    E.reshuffle(S, 300);
-    const now = S.rounds[1].matches.find((m) => m.court === 1);
-    if (now.a.concat(now.b).join() !== before) changed++;
-    /* the court is queued again with free players only, so nobody is double booked */
-    assert.equal(now.live, true, 'court 1 is running ahead again');
-    const busy = inPlay(S);
-    assert.equal(new Set(busy).size, busy.length, 'double booked after reshuffle');
-  }
-  assert.ok(changed >= 10, 'queued match should usually change, changed ' + changed + '/20');
-
-  const S = E.newSession(cfg(2, 180), NAMES);
-  const c1 = S.rounds[0].matches.find((m) => m.court === 1);
-  E.setResult(S, c1.id, 'a', []);
-  const q = E.startEarly(S, 0, 1);
-  E.startMatch(S, q.id);
-  const kept = q.a.concat(q.b).join();
-  E.reshuffle(S, 300);
-  const still = S.rounds[1].matches.find((m) => m.id === q.id);
-  assert.ok(still && still.a.concat(still.b).join() === kept, 'a started match stays put');
+/* ---- older saves ---- */
+const legacy = () => ({
+  id: 'old1',
+  active: NAMES.slice(0, 10),
+  courts: 2,
+  baseline: {},
+  rounds: [
+    {
+      matches: [
+        { id: 'a1', court: 1, a: ['Ana', 'Ben'], b: ['Cy', 'Dee'], done: true, winner: 'a' },
+        { id: 'a2', court: 2, a: ['Eli', 'Fay'], b: ['Gus', 'Hal'], done: true, winner: 'b' },
+      ],
+      rest: ['Ivy', 'Jo'],
+    },
+    {
+      matches: [
+        { id: 'b1', court: 1, a: ['Ivy', 'Jo'], b: ['Ana', 'Eli'], done: false },
+        { id: 'b2', court: 2, a: ['Ben', 'Gus'], b: ['Cy', 'Fay'], done: false, started: true },
+      ],
+      rest: ['Dee', 'Hal'],
+    },
+    {
+      matches: [{ id: 'c1', court: 1, a: ['Dee', 'Hal'], b: ['Ana', 'Ben'], done: false }],
+      rest: [],
+    },
+  ],
+});
+test('an older save keeps finished matches and what is on court, and drops later rounds', () => {
+  const S = E.fromLegacy(legacy());
+  assert.equal(S.matches.filter((m) => m.done).length, 2);
+  assert.equal(E.finished(S)[0].winner, 'a');
+  const up = open(S);
+  assert.equal(up.length, 2);
+  assert.ok(up.find((m) => m.id === 'b2').started);
+  assert.ok(!up.find((m) => m.id === 'b1').started);
+  assert.ok(!S.matches.some((m) => m.id === 'c1'));
+  assert.equal(S.courts.length, 2);
+  noDoubleBooking(S);
+});
+test('a save in the new format is returned as it is, and junk is rejected', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  assert.equal(E.fromLegacy(S), S);
+  assert.equal(E.fromLegacy(null), null);
+  assert.equal(E.fromLegacy({ active: [] }), null);
 });
 
-/* ---- two kinds of shuffle ---- */
-const partnerRepeats = (S) => {
-  const c = {};
-  S.rounds.forEach((rd) =>
-    rd.matches.forEach((m) =>
-      [m.a, m.b].forEach((t) => {
-        const k = [...t].sort().join('|');
-        c[k] = (c[k] || 0) + 1;
-      }),
-    ),
-  );
-  return Object.values(c).reduce((s, n) => s + Math.max(0, n - 1), 0);
-};
-const shuffled = (mode) => {
-  const S = E.newSession(cfg(2, 180), NAMES);
-  for (let r = 0; r < 2; r++) S.rounds[r].matches.forEach((m) => E.setResult(S, m.id, 'a', []));
-  E.reshuffle(S, 150, mode);
-  return S;
-};
-
-test('fresh partners repeats teammates less than a total shuffle', () => {
-  let fresh = 0,
-    random = 0;
-  const runs = 12;
-  for (let i = 0; i < runs; i++) {
-    fresh += partnerRepeats(shuffled('partners'));
-    random += partnerRepeats(shuffled('random'));
-  }
-  assert.ok(fresh / runs < random / runs, 'fresh ' + fresh / runs + ' vs random ' + random / runs);
-});
-
-test('both shuffles keep finished matches and keep games even', () => {
-  for (const mode of ['random', 'partners']) {
-    const S = E.newSession(cfg(2, 180), NAMES);
-    const first = S.rounds[0].matches.map((m) => m.id + ':' + m.a.concat(m.b).join());
-    S.rounds[0].matches.forEach((m) => E.setResult(S, m.id, 'b', []));
-    E.reshuffle(S, 150, mode);
-    assert.deepEqual(
-      S.rounds[0].matches.map((m) => m.id + ':' + m.a.concat(m.b).join()),
-      first,
-    );
-    const g = Object.values(games(S));
-    assert.ok(Math.max(...g) - Math.min(...g) <= 1, mode + ' games spread ' + g.join(','));
-    S.rounds.forEach((rd) => {
-      const seen = rd.matches.flatMap((m) => m.a.concat(m.b));
-      assert.equal(new Set(seen).size, seen.length);
-    });
-  }
+test('someone marked out stays in the players list so they can be brought back', () => {
+  const S = E.newSession(cfg(2), NAMES);
+  const sub = E.freePlayers(S)[0];
+  const out = E.pendingOn(S, 1).a[0];
+  E.playerOut(S, out, sub);
+  assert.ok(E.allNames(S).includes(out), 'the player who left is still listed');
+  E.renameInSession(S, out, 'Renamed');
+  assert.ok(E.allNames(S).includes('Renamed'));
+  E.playerIn(S, 'Renamed');
+  assert.ok(S.active.includes('Renamed') && !S.left.includes('Renamed'));
 });

@@ -17,10 +17,9 @@ const App = {
   view: 'setup',
   roster: DEFAULT_ROSTER.slice(),
   picked: new Set(DEFAULT_ROSTER),
-  cfg: { courts: 2, minutes: 20, wins: [{ len: 180 }, { len: 180 }] },
+  cfg: { courts: 2, labels: ['1', '2'] },
   S: null,
   history: [],
-  vr: 0,
   sheet: null,
   sheetNew: false,
   toast: null,
@@ -35,22 +34,6 @@ const esc = (s) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
-const parseHM = (s) => {
-  const [h, m] = String(s || '09:00')
-    .split(':')
-    .map(Number);
-  return (h || 0) * 60 + (m || 0);
-};
-const fmtHM = (min) => {
-  min = ((min % 1440) + 1440) % 1440;
-  return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
-};
-const fmtLen = (min) => {
-  const h = min / 60;
-  if (Number.isInteger(h)) return h + 'h';
-  return min % 30 === 0 ? h.toFixed(1) + 'h' : Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
-};
-const LENS = [60, 90, 120, 150, 180, 210, 240, 270, 300, 360];
 const fmtNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 const I = {
@@ -117,7 +100,6 @@ function save() {
         cfg: App.cfg,
         S: App.S,
         view: App.view,
-        vr: App.vr,
         mig: 1,
       }),
     );
@@ -151,16 +133,16 @@ function load() {
     if (d.mig !== 1) App.roster = App.roster.filter((n) => n !== 'Angel');
     if (Array.isArray(d.picked)) App.picked = new Set(d.picked.filter((n) => App.roster.includes(n)));
     if (d.cfg && typeof d.cfg === 'object') {
-      App.cfg = Object.assign(App.cfg, d.cfg);
-      App.cfg.wins = [{ len: 180 }, { len: 180 }];
-      delete App.cfg.start;
-      delete App.cfg.hours;
-      delete App.cfg.linked;
+      if (d.cfg.courts === 1 || d.cfg.courts === 2) App.cfg.courts = d.cfg.courts;
+      if (Array.isArray(d.cfg.labels))
+        App.cfg.labels = [0, 1].map((i) => cleanLabel(d.cfg.labels[i]) || String(i + 1));
+      if (App.cfg.labels[0] === App.cfg.labels[1]) App.cfg.labels = ['1', '2'];
     }
-    if (d.S && Array.isArray(d.S.rounds) && d.S.rounds.length && Array.isArray(d.S.active)) {
-      App.S = d.S;
+    /* A session saved before live courts is converted. Its finished games are kept. */
+    const S = d.S ? fromLegacy(d.S) : null;
+    if (S && Array.isArray(S.matches) && Array.isArray(S.courts) && S.courts.length) {
+      App.S = S;
       App.view = d.view === 'schedule' ? 'schedule' : 'setup';
-      App.vr = Math.min(Math.max(0, d.vr | 0), App.S.rounds.length - 1);
     }
   } catch (e) {
     /* ignore broken saves */
@@ -168,55 +150,46 @@ function load() {
 }
 
 /* ---------- views ---------- */
-function courtBlock(i) {
-  const w = App.cfg.wins[i],
-    fr = framed(App.cfg.wins, App.cfg.courts)[i];
-  const lenList = LENS.includes(w.len) ? LENS : LENS.concat([w.len]).sort((x, y) => x - y);
-  const lens = lenList
-    .map(
-      (v) => '<option value="' + v + '"' + (v === w.len ? ' selected' : '') + '>' + fmtLen(v) + '</option>',
-    )
-    .join('');
-  return (
-    '<div class="cl1"><div class="cn"><span class="tl">Court ' +
-    (i + 1) +
-    '</span>' +
-    (fr.start > 0 ? '<span class="endi">joins after ' + fmtLen(fr.start) + '</span>' : '') +
-    '</div>' +
-    '<select class="lsel" id="w' +
-    i +
-    'l" aria-label="Court ' +
-    (i + 1) +
-    ' length">' +
-    lens +
-    '</select></div>'
-  );
+/* A court number: digits only, 1 to 99. Returns '' when it is not usable. */
+const cleanLabel = (v) => {
+  const n = parseInt(String(v == null ? '' : v).replace(/\D/g, ''), 10);
+  return n >= 1 && n <= 99 ? String(n) : '';
+};
+function courtInputs(prefix, labels, count) {
+  return Array.from({ length: count }, (_, i) =>
+    (
+      '<label class="cnum"><span>Court</span><input id="' +
+      prefix +
+      i +
+      '" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="' +
+      esc(labels[i]) +
+      '" autocomplete="off" aria-label="Number of court ' +
+      (i + 1) +
+      '"></label>'
+    ),
+  ).join('');
 }
 
 function setupHTML() {
   const n = App.picked.size,
-    { courts, minutes, wins } = App.cfg;
-  const plan = planSlots(wins, courts, minutes);
+    courts = App.cfg.courts;
   const use = Math.min(courts, Math.floor(n / 4));
-  const ok = n >= 4 && plan.rounds > 0;
+  const ok = n >= 4;
   let sum;
-  if (plan.rounds < 1)
-    sum = '<p class="summary warn" role="status">The session is shorter than one match.</p>';
-  else if (n < 4) sum = '<p class="summary warn" role="status">Pick at least 4 players.</p>';
+  if (!ok) sum = '<p class="summary warn" role="status">Pick at least 4 players.</p>';
   else {
-    const matches = plan.counts.reduce((t, c) => t + Math.min(c, Math.floor(n / 4)), 0);
-    const per = Math.round((matches * 4) / n);
+    const rest = n - use * 4;
     sum =
       '<p class="summary' +
       (use < courts ? ' warn' : '') +
       '" role="status"><b>' +
-      plan.rounds +
-      ' rounds</b>, about <b>' +
-      per +
-      ' games</b> each.' +
+      use * 4 +
+      ' play</b>' +
+      (rest ? ' and <b>' + rest + ' rest</b>' : '') +
+      ' at a time.' +
       (use < courts
-        ? ' Only ' + use + (use === 1 ? ' court' : ' courts') + ' can run at once with this many players.'
-        : '') +
+        ? ' Only ' + use + (use === 1 ? ' court' : ' courts') + ' can run with this many players.'
+        : ' The next match for a court is made when its game finishes.') +
       '</p>';
   }
   const chips =
@@ -234,7 +207,7 @@ function setupHTML() {
           '</span></button>',
       )
       .join('') +
-    '<button class="pchip add" data-act="open-roster" aria-label="Add or remove players">' +
+    '<button class="pchip add" data-act="open-roster" aria-label="Add, rename or remove players">' +
     I.plus.replace('<svg', '<svg style="width:16px;height:16px;flex:none"') +
     '<span>Add</span></button>';
   const all = App.picked.size === App.roster.length;
@@ -273,7 +246,7 @@ function setupHTML() {
     chips +
     '</div></div>' +
     '<div class="controls">' +
-    '<div class="field"><span class="lbl" id="l-courts">Courts</span><div class="seg" role="radiogroup" aria-labelledby="l-courts">' +
+    '<div class="field wide"><span class="lbl" id="l-courts">Courts</span><div class="seg" role="radiogroup" aria-labelledby="l-courts">' +
     [1, 2]
       .map(
         (c) =>
@@ -287,13 +260,9 @@ function setupHTML() {
       )
       .join('') +
     '</div></div>' +
-    '<div class="field"><span class="lbl" id="l-min">Minutes per match</span><div class="step"><button data-act="min" data-d="-5" aria-label="5 minutes less" aria-describedby="l-min">&minus;</button><output class="num" aria-live="polite">' +
-    minutes +
-    '<small>min</small></output><button data-act="min" data-d="5" aria-label="5 minutes more" aria-describedby="l-min">+</button></div></div>' +
-    '<div class="field wide"><div class="lblrow"><span class="lbl">How long to play</span></div>' +
-    courtBlock(0) +
-    (courts > 1 ? courtBlock(1) : '') +
-    '</div>' +
+    '<div class="field wide"><span class="lbl">Court numbers</span><div class="cnums">' +
+    courtInputs('cn', App.cfg.labels, courts) +
+    '</div></div>' +
     '</div>' +
     sum +
     '<button class="btn quiet histlink" data-act="open-history">' +
@@ -303,7 +272,7 @@ function setupHTML() {
     '<footer class="foot"><button class="btn primary" data-act="generate"' +
     (!ok || App.busy ? ' disabled' : '') +
     ' style="min-height:50px">' +
-    (App.busy ? '<span class="spin"></span>Building schedule' : 'Generate schedule') +
+    (App.busy ? '<span class="spin"></span>Setting up' : 'Start session') +
     '</button></footer></div>'
   );
 }
@@ -312,84 +281,78 @@ function matchText(m) {
   return m.a.join(' + ') + ' vs ' + m.b.join(' + ');
 }
 
-function matchCard(m, r, cur, idx, canClose) {
-  let st;
-  if (m.done) st = ['done', 'Done'];
-  else if (m.started) st = ['now', 'Playing now'];
-  else if (r === cur || m.live) st = ['', 'Up next'];
-  else if (r < cur) st = ['', 'Not logged'];
-  else st = ['', 'Later'];
-  const canStart = !m.done && !m.started && (r === cur || m.live);
-  const pos = { a: ['26.4%', '73.6%'] };
+/* A court with a match: up next until Start game is pressed, then playing now. */
+function matchCard(S, m) {
+  const slot = m.c,
+    c = S.courts[slot - 1],
+    label = courtLabel(S, slot);
+  const badge = m.started ? ['now', 'Playing now'] : ['', 'Up next'];
   const pill = (name, side, k) => {
     const left = side === 'a' ? '26.4%' : '73.6%',
       top = k === 0 ? '27.9%' : '72.1%';
-    const won = m.done && m.winner === side,
-      lost = m.done && m.winner && m.winner !== side;
     return (
       '<button class="pill t-' +
       side +
-      (lost ? ' lose' : '') +
       '" style="left:' +
       left +
       ';top:' +
       top +
       '" data-act="player" data-name="' +
       esc(name) +
-      '" data-r="' +
-      r +
       '"' +
-      (m.done ? ' disabled' : '') +
+      (m.started ? ' disabled' : '') +
       ' aria-label="' +
       esc(name) +
       ', team ' +
       side.toUpperCase() +
-      (won ? ', winner' : '') +
-      (m.done ? '' : '. Change player') +
+      (m.started ? '' : '. Change player') +
       '">' +
-      (won ? I.check : '') +
       '<span>' +
       esc(name) +
       '</span></button>'
     );
   };
+  const ctl =
+    S.courts.length > 1
+      ? c.open
+        ? '<button class="btn quiet icon sm" data-act="court-close" data-c="' +
+          slot +
+          '" aria-label="Close court ' +
+          label +
+          '" title="Close court ' +
+          label +
+          '">' +
+          I.court +
+          '</button>'
+        : '<button class="btn quiet icon sm" data-act="court-open" data-c="' +
+          slot +
+          '" aria-label="Open court ' +
+          label +
+          ' again" title="Open court ' +
+          label +
+          ' again">' +
+          I.plus +
+          '</button>'
+      : '';
+  const main = m.started
+    ? '<button class="btn sm" data-act="result" data-id="' + m.id + '">Pick winner</button>'
+    : '<button class="btn sm primary" data-act="start" data-id="' + m.id + '">' + I.play + 'Start game</button>';
   return (
     '<article class="match" aria-label="Court ' +
-    m.court +
+    label +
     '">' +
     '<header class="match-h"><div class="match-t"><span class="court-n">Court ' +
-    m.court +
+    label +
     '</span><span class="badge ' +
-    st[0] +
+    badge[0] +
     '">' +
-    (m.done ? I.check : I.dot) +
-    st[1] +
-    '</span></div>' +
-    '<div class="mh-a">' +
-    (canClose
-      ? '<button class="btn quiet icon sm" data-act="court-close" data-c="' +
-        m.court +
-        '" data-r="' +
-        r +
-        '" aria-label="Skip court ' +
-        m.court +
-        ' this round" title="Skip court ' +
-        m.court +
-        ' this round">' +
-        I.court +
-        '</button>'
-      : '') +
-    (canStart
-      ? '<button class="btn sm primary" data-act="start" data-id="' +
-        m.id +
-        '">' +
-        I.play +
-        'Start game</button>'
-      : '<button class="btn sm" data-act="result" data-id="' +
-        m.id +
-        '">' +
-        (m.done ? 'Change winner' : 'Pick winner') +
-        '</button>') +
+    I.dot +
+    badge[1] +
+    '</span>' +
+    (c.open ? '' : '<span class="endi">Last game here</span>') +
+    '</div><div class="mh-a">' +
+    ctl +
+    main +
     '</div></header>' +
     '<div class="court-slot"><div class="court">' +
     COURT_SVG +
@@ -401,199 +364,142 @@ function matchCard(m, r, cur, idx, canClose) {
   );
 }
 
+/* A court with no match yet: waiting for four free players, or closed. */
+function idleCard(S, slot) {
+  const c = S.courts[slot - 1],
+    label = courtLabel(S, slot),
+    free = freePlayers(S).length;
+  return (
+    '<article class="match idle" aria-label="Court ' +
+    label +
+    '"><header class="match-h"><div class="match-t"><span class="court-n">Court ' +
+    label +
+    '</span><span class="badge">' +
+    (c.open ? 'Waiting' : 'Closed') +
+    '</span></div>' +
+    (S.courts.length > 1 && !c.open
+      ? '<div class="mh-a"><button class="btn sm" data-act="court-open" data-c="' +
+        slot +
+        '">Open court</button></div>'
+      : '') +
+    '</header><p class="note idle-note">' +
+    (c.open
+      ? 'Needs 4 free players, ' + free + ' free right now. The match is made as soon as there are enough.'
+      : 'No new matches here until you open it again.') +
+    '</p></article>'
+  );
+}
+
 function scheduleHTML() {
-  const S = App.S;
-  App.vr = Math.min(Math.max(0, App.vr), S.rounds.length - 1);
-  const r = App.vr,
-    rd = S.rounds[r],
-    cur = curRound(S),
-    total = S.rounds.length;
-  const t0 = startMinOf(S) + r * S.minutes;
-  const segs = S.rounds
-    .map((x, i) => {
-      const done = x.matches.length > 0 && x.matches.every((m) => m.done);
-      return (
-        '<button data-act="goto" data-r="' +
-        i +
-        '" class="' +
-        [done ? 'done' : '', i === cur ? 'cur' : '', i === r ? 'view' : ''].join(' ') +
-        '" aria-label="Round ' +
-        (i + 1) +
-        (done ? ', done' : '') +
-        (i === cur ? ', current' : '') +
-        '"' +
-        (i === r ? ' aria-current="true"' : '') +
-        '><i></i></button>'
-      );
-    })
-    .join('');
-  const pending = rd.matches.some((m) => !m.done);
-  const one = rd.matches.length <= 1;
-  let courts;
-  if (!rd.matches.length) {
-    courts =
-      '<div class="empty"><b>No match this round</b><span>Four players are needed. Add someone from Players.</span></div>';
-  } else {
-    courts =
-      '<div class="courts' +
-      (one ? ' one' : '') +
-      '">' +
-      rd.matches.map((m, i) => matchCard(m, r, cur, i, rd.matches.length > 1 && !m.done)).join('') +
-      '</div>';
-  }
-  const avail = courtsFor(S, r),
-    closed = [];
-  for (let c = 1; c <= Math.max(S.courts, 2); c++) {
-    if (avail.includes(c)) continue;
-    let first = -1;
-    for (let q = r + 1; q < S.rounds.length; q++)
-      if (courtsFor(S, q).includes(c)) {
-        first = q;
-        break;
-      }
-    const off = isOffAt(S, c, r);
-    closed.push(
-      '<span>Court ' +
-        c +
-        (off ? ' is off this round' : first >= 0 ? ' starts in round ' + (first + 1) : ' is closed') +
-        '</span>' +
-        (off
-          ? '<button class="btn sm quiet" data-act="court-on-round" data-c="' +
-            c +
-            '" data-r="' +
-            r +
-            '">' +
-            I.plus.replace('<svg', '<svg style="width:14px;height:14px"') +
-            'Open</button>'
-          : r === cur
-            ? '<button class="btn sm quiet" data-act="court-open" data-c="' +
-              c +
-              '">' +
-              I.plus.replace('<svg', '<svg style="width:14px;height:14px"') +
-              (first >= 0 ? 'Open now' : 'Open') +
-              '</button>'
-            : ''),
-    );
-  }
-  S.rounds.forEach((x, q) => {
-    if (q <= r) return;
-    x.matches.forEach((m) => {
-      if (m.live && !m.done)
-        closed.push(
-          '<span>Court ' +
-            m.court +
-            (m.started ? ' is playing: ' : ' is next: ') +
-            esc(matchText(m)) +
-            '</span>' +
-            '<button class="btn sm quiet" data-act="goto" data-r="' +
-            q +
-            '">Show</button>',
-        );
-    });
-  });
-  const cnote = closed.length
-    ? '<div class="note courtnote">' +
-      closed.map((x) => '<div class="cnrow">' + x + '</div>').join('') +
-      '</div>'
-    : '';
+  const S = App.S,
+    sm = summarize(S),
+    done = finished(S);
+  const courts =
+    '<div class="courts' +
+    (S.courts.length < 2 ? ' one' : '') +
+    '">' +
+    S.courts
+      .map((c, i) => {
+        const m = pendingOn(S, i + 1);
+        return m ? matchCard(S, m) : idleCard(S, i + 1);
+      })
+      .join('') +
+    '</div>';
+  const free = freePlayers(S);
+  const queued = S.matches.some((m) => !m.done && !m.started);
   const rest =
-    '<section class="rest" aria-label="Resting this round">' +
-    (rd.rest.length
+    '<section class="rest" aria-label="Resting">' +
+    (free.length
       ? '<span class="rest-l">Resting</span>' +
-        rd.rest
+        free
           .map(
             (p) =>
               '<button class="rchip" data-act="player" data-name="' +
               esc(p) +
-              '" data-r="' +
-              r +
               '"' +
-              (pending ? '' : ' disabled') +
-              '>' +
+              (queued ? '' : ' disabled') +
+              ' aria-label="' +
               esc(p) +
-              '</button>',
+              ', ' +
+              sm.per[p].played +
+              ' played">' +
+              esc(p) +
+              '<span class="gc">' +
+              sm.per[p].played +
+              '</span></button>',
           )
           .join('')
-      : '<span class="note">Everyone is playing this round.</span>') +
+      : '<span class="note">Everyone is on court.</span>') +
     '</section>';
-  let up = '';
-  if (rd.matches.length) {
-    const rows = S.rounds
-      .slice(r + 1, r + 7)
-      .map(
-        (x, i) =>
-          '<button class="urow" data-act="goto" data-r="' +
-          (r + 1 + i) +
-          '"><b>Round ' +
-          (r + 2 + i) +
-          '</b><span>' +
-          (x.matches.length ? x.matches.map(matchText).join('. ') : 'No match') +
-          '</span></button>',
-      )
-      .join('');
-    up =
-      '<section class="upnext" aria-label="Coming up"><h3>Coming up</h3>' +
-      (rows || '<p class="note">This is the last round. Add another from the menu.</p>') +
-      '</section>';
-  }
+  const team = (m, side) => {
+    const won = m.winner === side;
+    return (
+      '<span class="tm ' +
+      (won ? 'w' : 'l') +
+      '">' +
+      (won ? I.check : '') +
+      esc((side === 'a' ? m.a : m.b).join(' + ')) +
+      '</span>'
+    );
+  };
+  const rows = done
+    .map((m, i) => ({ m, num: i + 1 }))
+    .reverse()
+    .map(
+      ({ m, num }) =>
+        '<button class="urow played" data-act="result" data-id="' +
+        m.id +
+        '"><b>Game ' +
+        num +
+        '<small>Court ' +
+        esc(courtLabel(S, m.c)) +
+        '</small></b><span class="pm">' +
+        team(m, 'a') +
+        '<i class="vs">vs</i>' +
+        team(m, 'b') +
+        '</span></button>',
+    )
+    .join('');
+  const played =
+    '<section class="played" aria-label="Played games"><h3>Played' +
+    (done.length ? ', ' + done.length : '') +
+    '</h3>' +
+    (rows || '<p class="note">Finished games show up here. Tap one to change its winner.</p>') +
+    '</section>';
   return (
     '<div class="shell">' +
     '<header class="top sched"><div class="brand">' +
     I.brand +
     '<span>Palong Palo</span></div><div class="actions">' +
-    '<button class="btn quiet icon" data-act="full" aria-label="Full schedule" title="Full schedule">' +
-    I.list +
-    '</button>' +
     '<button class="btn quiet icon" data-act="stats" aria-label="Stats" title="Stats">' +
     I.stats +
     '</button>' +
-    '<button class="btn quiet icon" data-act="add-round" aria-label="Add a round" title="Add a round">' +
-    I.roundplus +
-    '</button>' +
-    '<button class="btn quiet icon" data-act="shuffle" aria-label="Shuffle remaining rounds" title="Shuffle remaining rounds">' +
+    '<button class="btn quiet icon" data-act="shuffle" aria-label="Shuffle the matches up next" title="Shuffle the matches up next"' +
+    (queued ? '' : ' disabled') +
+    '>' +
     I.shuffle +
     '</button>' +
     '<button class="btn quiet icon" data-act="menu" aria-label="More" title="More">' +
     I.menu +
     '</button></div></header>' +
-    '<main class="main">' +
-    '<div class="roundbar"><div class="roundrow"><h1 class="roundtitle">Round ' +
-    (r + 1) +
-    '<small>of ' +
-    total +
-    '</small></h1><div class="rt"><span class="roundtime">' +
-    S.minutes +
-    ' min a match</span><button class="btn quiet icon sm" data-act="del-round" data-r="' +
-    r +
-    '" aria-label="Delete round ' +
-    (r + 1) +
-    '" title="Delete this round"' +
-    (total < 2 ? ' disabled' : '') +
-    '>' +
-    I.trash +
-    '</button></div></div>' +
-    '<div class="segs">' +
-    segs +
-    '</div></div>' +
+    '<main class="main live">' +
+    '<div class="roundbar"><div class="roundrow"><h1 class="roundtitle">On court<small>' +
+    done.length +
+    (done.length === 1 ? ' game' : ' games') +
+    ' played, ' +
+    sm.n +
+    ' players</small></h1></div></div>' +
     courts +
-    cnote +
     rest +
-    up +
+    played +
     '</main>' +
-    '<footer class="foot"><div class="footnav">' +
-    '<button class="btn" data-act="prev"' +
-    (r === 0 ? ' disabled' : '') +
-    '>' +
-    I.prev +
-    'Prev</button>' +
+    '<footer class="foot"><div class="footnav two">' +
     '<button class="btn" data-act="players">' +
     I.people +
     'Players</button>' +
-    '<button class="btn primary" data-act="next"' +
-    (r >= total - 1 ? ' disabled' : '') +
-    '>Next round' +
-    I.next +
-    '</button></div></footer></div>'
+    '<button class="btn" data-act="full">' +
+    I.list +
+    'Standings</button></div></footer></div>'
   );
 }
 
@@ -623,12 +529,10 @@ function sheetShell(title, sub, body, extra) {
 
 function changeSheet(sh) {
   const S = App.S,
-    round = S.rounds[sh.r],
-    loc = round && findPlayer(round, sh.name);
-  if (!loc) return '';
-  const per = summarize(S).per;
+    per = summarize(S).per;
   const pl = (p) => (per[p] ? per[p].played : 0);
-  const pend = round.matches.filter((m) => !m.done);
+  const loc = locate(S, sh.name);
+  const queued = S.matches.filter((m) => !m.done && !m.started);
   const cand = (p, sub, cls, act) =>
     '<button class="cand ' +
     (cls || '') +
@@ -641,78 +545,71 @@ function changeSheet(sh) {
     '</b><small>' +
     esc(sub) +
     '</small></button>';
-  if (loc.rest) {
-    const list = pend
+  if (!loc) {
+    /* Someone resting. Bring them in instead of a player whose match has not started. */
+    const list = queued
       .flatMap((m) =>
-        [...m.a, ...m.b].map((p) => cand(p, 'Court ' + m.court + ', ' + pl(p) + ' played', '', 'swap')),
+        [...m.a, ...m.b].map((p) =>
+          cand(p, 'Court ' + courtLabel(S, m.c) + ', ' + pl(p) + ' played', '', 'swap'),
+        ),
       )
       .join('');
     return sheetShell(
       'Bring in ' + sh.name,
-      'Round ' + (sh.r + 1) + ', ' + pl(sh.name) + ' played',
+      pl(sh.name) + ' played',
       '<div class="group"><h3>Who sits out instead?</h3><div class="cands">' + list + '</div></div>',
     );
   }
   const m = loc.m;
+  if (m.started) return '';
   const out = sh.mode === 'out';
-  const rel = (p) =>
-    m.a.includes(p) === m.a.includes(sh.name) &&
-    [...m.a, ...m.b].includes(p) &&
-    m === loc.m &&
-    (m.a.includes(p) ? m.a : m.b).includes(sh.name)
-      ? 'Partner'
-      : null;
+  const free = freePlayers(S).filter((p) => p !== sh.name);
   let body =
     '<div class="seg mode" role="radiogroup" aria-label="How long">' +
     '<button role="radio" aria-checked="' +
     !out +
-    '" data-act="mode" data-v="rest">Rest this round</button>' +
+    '" data-act="mode" data-v="rest">Rest this match</button>' +
     '<button role="radio" aria-checked="' +
     out +
     '" data-act="mode" data-v="out">Out for today</button></div>';
-  if (round.rest.length) {
+  if (free.length) {
     body +=
       '<div class="group"><h3>' +
       (out ? 'Who takes ' + esc(sh.name) + '’s spot?' : 'Replace with someone resting') +
       '</h3><div class="cands">' +
-      round.rest.map((p) => cand(p, pl(p) + ' played', 'free', out ? 'out' : 'swap')).join('') +
+      free.map((p) => cand(p, pl(p) + ' played', 'free', out ? 'out' : 'swap')).join('') +
       '</div></div>';
   } else {
     body +=
-      '<div class="group"><p class="note">Nobody is resting this round, so there is no one to step in. The other three will sit out this match.</p>' +
-      '<button class="btn" data-act="' +
-      (out ? 'out' : 'skip') +
-      '" data-with="">' +
-      (out ? 'Out for today, skip this match' : 'Rest and skip this match') +
-      '</button></div>';
+      '<div class="group"><p class="note">Nobody is resting, so there is no one to step in.' +
+      (out ? ' The match is made again when four players are free.' : '') +
+      '</p>' +
+      (out ? '<button class="btn" data-act="out" data-with="">Out for today</button>' : '') +
+      '</div>';
   }
   if (!out) {
     const others = [];
-    pend.forEach((mm) =>
+    queued.forEach((mm) =>
       [...mm.a, ...mm.b].forEach((p) => {
         if (p === sh.name) return;
-        let sub = 'Court ' + mm.court;
+        let sub = 'Court ' + courtLabel(S, mm.c);
         if (mm === m) sub = m.a.includes(p) === m.a.includes(sh.name) ? 'Partner' : 'Opponent';
         others.push(cand(p, sub, '', 'swap'));
       }),
     );
     if (others.length)
       body +=
-        '<div class="group"><h3>Swap with someone playing</h3><div class="cands">' +
+        '<div class="group"><h3>Swap with someone up next</h3><div class="cands">' +
         others.join('') +
         '</div></div>';
   }
-  return sheetShell(
-    sh.name,
-    'Round ' + (sh.r + 1) + ', Court ' + m.court + ', ' + pl(sh.name) + ' played',
-    body,
-  );
+  return sheetShell(sh.name, 'Court ' + courtLabel(S, m.c) + ', ' + pl(sh.name) + ' played', body);
 }
 
 function resultSheet(sh) {
-  const f = findMatch(App.S, sh.id);
-  if (!f) return '';
-  const m = f.m;
+  const S = App.S,
+    m = findMatch(S, sh.id);
+  if (!m) return '';
   const wb = (side) =>
     '<button class="winbtn t-' +
     side +
@@ -727,40 +624,38 @@ function resultSheet(sh) {
     '</b>' +
     I.check +
     '</button>';
-  const body =
-    '<div class="group"><h3>Tap the winning team</h3>' +
-    wb('a') +
-    wb('b') +
-    '</div>' +
-    (m.done ? '<button class="btn quiet danger" data-act="reopen">Clear winner</button>' : '');
-  return sheetShell('Court ' + m.court + ', Round ' + (f.r + 1), 'Best of 3 to 15', body);
+  let extra = '';
+  if (m.done)
+    extra = canReopen(S, m.id)
+      ? '<button class="btn quiet danger" data-act="reopen">Clear winner</button>'
+      : '<p class="note">The court has moved on, so this winner can be changed but not cleared.</p>';
+  return sheetShell(
+    'Court ' + courtLabel(S, m.c),
+    'Best of 3 to 15',
+    '<div class="group"><h3>Tap the winning team</h3>' + wb('a') + wb('b') + '</div>' + extra,
+  );
 }
 
 function overall(S) {
   const per = summarize(S).per;
-  const rows = Object.values(per)
+  return Object.values(per)
     .filter((p) => p.w + p.l > 0)
     .sort((x, y) => y.w - x.w || x.l - y.l || x.name.localeCompare(y.name));
-  return rows;
 }
 
 function fullSheet() {
   const S = App.S,
-    cur = curRound(S),
     rows = overall(S);
-  const allDone = S.rounds.every((rd) => rd.matches.every((m) => m.done));
   let rank;
   if (!rows.length)
     rank =
-      '<p class="note">No winners logged yet. Pick a winner on each match and the overall ranking shows up here.</p>';
+      '<p class="note">No winners logged yet. Pick a winner on each game and the standings show up here.</p>';
   else {
     const top = rows.filter((p) => p.w === rows[0].w && p.l === rows[0].l);
     let place = 0,
       prev = null;
     rank =
-      '<p class="lead">' +
-      (allDone ? 'Overall winner' : 'Leading') +
-      ': <b>' +
+      '<p class="lead">Leading: <b>' +
       (top.length > 4
         ? top.length + ' players tied'
         : top.length > 1
@@ -775,7 +670,7 @@ function fullSheet() {
       top[0].w +
       (top[0].w === 1 ? ' win' : ' wins') +
       ')</p>' +
-      '<div class="rank" role="table" aria-label="Overall ranking">' +
+      '<div class="rank" role="table" aria-label="Standings">' +
       rows
         .map((p, i) => {
           const key = p.w + '-' + p.l;
@@ -798,69 +693,18 @@ function fullSheet() {
         .join('') +
       '</div>';
   }
-  const rounds = S.rounds
-    .map((rd, r) => {
-      const done = rd.matches.length > 0 && rd.matches.every((m) => m.done);
-      const team = (m, side) => {
-        const names = (side === 'a' ? m.a : m.b).join(' + ');
-        const won = m.done && m.winner === side;
-        return (
-          '<span class="tm' +
-          (m.done ? (won ? ' w' : ' l') : '') +
-          '">' +
-          (won ? I.check : '') +
-          esc(names) +
-          '</span>'
-        );
-      };
-      const ms =
-        rd.matches
-          .map(
-            (m) =>
-              '<div class="fm"><span class="ct">C' +
-              m.court +
-              '</span><span class="mt">' +
-              team(m, 'a') +
-              '<i class="vs">vs</i>' +
-              team(m, 'b') +
-              '</span></div>',
-          )
-          .join('') || '<p class="rs">No match</p>';
-      return (
-        '<section class="rd' +
-        (r === cur ? ' cur' : '') +
-        '"><button class="rd-h" data-act="jump" data-r="' +
-        r +
-        '" aria-label="Go to round ' +
-        (r + 1) +
-        '"><b>R' +
-        (r + 1) +
-        '</b><small>' +
-        (done ? 'Done' : r === cur ? 'Now' : '') +
-        '</small></button>' +
-        '<div class="rb">' +
-        ms +
-        (rd.rest.length ? '<p class="rs">Rest: ' + rd.rest.map(esc).join(', ') + '</p>' : '') +
-        '</div></section>'
-      );
-    })
-    .join('');
+  const n = finished(S).length;
   return sheetShell(
-    'Full schedule',
-    S.rounds.length + ' rounds, ' + S.active.length + ' players',
-    '<div class="group"><h3>Overall</h3>' +
-      rank +
-      '</div><div class="group"><h3>Rounds</h3><div class="rlist">' +
-      rounds +
-      '</div></div>',
+    'Standings',
+    n + (n === 1 ? ' game' : ' games') + ' played',
+    '<div class="group">' + rank + '</div>',
     'tall',
   );
 }
 
 function playersSheet() {
   const S = App.S,
-    sm = summarize(S),
-    cur = curRound(S);
+    sm = summarize(S);
   const names = allNames(S);
   const rows = names
     .map((n) => {
@@ -909,9 +753,9 @@ function playersSheet() {
     '<form id="f-late" class="addrow"><input id="latename" type="text" placeholder="Add a late player" autocomplete="off" aria-label="Late player name" maxlength="20"><button class="btn" type="submit">' +
     I.plus +
     'Add</button></form>' +
-    '<p class="note">Switching someone Out takes them off the rest of the schedule. A late player joins from the next round.</p>' +
+    '<p class="note">Switching someone Out keeps them out of new matches. A game they are already playing finishes first. A late player can be picked for the next match.</p>' +
     '<button class="btn quiet" data-act="open-roster">Rename or edit players list</button>';
-  return sheetShell('Players', 'Round ' + (cur + 1) + ' of ' + S.rounds.length, body);
+  return sheetShell('Players', sm.n + ' playing today', body);
 }
 
 function menuSheet() {
@@ -940,30 +784,38 @@ function menuSheet() {
       )
       .join('') +
     '</div></div>' +
-    '<div class="group"><h3>Play longer</h3><div class="cands">' +
-    '<button class="btn" data-act="add-round">' +
-    I.plus +
-    'Add 1 round</button>' +
-    '<button class="btn" data-act="add-hour">' +
-    I.plus +
-    'Add 1 hour</button></div></div>' +
     '<div class="group"><div class="rrow"><span>Sound<small class="cs">Tap sounds and small buzzes</small></span>' +
     '<button class="sw" role="switch" aria-checked="' +
     Sound.enabled +
     '" aria-label="Sound" data-act="sound">' +
     (Sound.enabled ? 'On' : 'Off') +
     '</button></div></div>' +
-    '<div class="menu"><button class="btn" data-act="open-history">Saved results and backup</button>' +
+    '<div class="menu"><button class="btn" data-act="open-courts">Court numbers</button>' +
+    '<button class="btn" data-act="open-history">Saved results and backup</button>' +
     '<button class="btn" data-act="setup">Back to setup</button>' +
     '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
-    '<p class="note">Each match is about ' +
-    S.minutes +
-    ' minutes. Opponent coverage is ' +
+    '<p class="note">Opponent coverage is ' +
     sm.oppPct +
     '% and partner coverage is ' +
     sm.partnerPct +
     '%.</p>';
   return sheetShell('Session', S.active.length + ' players', body);
+}
+
+function courtsSheet() {
+  const S = App.S;
+  return sheetShell(
+    'Court numbers',
+    'Match the numbers on your courts',
+    '<form id="f-courts" class="addrow"><div class="cnums">' +
+      courtInputs(
+        'sc',
+        S.courts.map((c) => c.label),
+        S.courts.length,
+      ) +
+      '</div><button class="btn primary" type="submit">Save</button></form>' +
+      '<p class="note">Numbers only, 1 to 99. Each court needs its own number.</p>',
+  );
 }
 
 function rosterSheet(sh) {
@@ -1076,10 +928,10 @@ function shuffleSheet() {
     text +
     '</small></button>';
   return sheetShell(
-    'Shuffle remaining rounds',
-    'Finished and started matches stay as they are',
+    'Shuffle the matches up next',
+    'Games already started or finished stay as they are',
     '<div class="cands" style="grid-template-columns:1fr">' +
-      opt('random', 'Total shuffle', 'Random teams and opponents in every remaining round. Games played still stay even.') +
+      opt('random', 'Total shuffle', 'Random teams and opponents. Players who have played fewer games still come first.') +
       opt(
         'partners',
         'Fresh partners',
@@ -1100,6 +952,7 @@ function sheetHTML() {
   if (sh.type === 'roster') return rosterSheet(sh);
   if (sh.type === 'history') return historySheet();
   if (sh.type === 'shuffle') return shuffleSheet();
+  if (sh.type === 'courts') return courtsSheet();
   if (sh.type === 'stats') return statsSheet();
   return '';
 }
@@ -1231,13 +1084,8 @@ function closeSheet() {
 /* Sound cue per action. Anything not listed gets the soft one. */
 const CUES = {
   win: 'ok',
-  'add-round': 'ok',
-  'add-hour': 'ok',
-  'court-on-round': 'ok',
   'court-open': 'ok',
   'court-close': 'warn',
-  'del-round': 'warn',
-  skip: 'warn',
   out: 'warn',
 };
 
@@ -1250,7 +1098,7 @@ function mutate(fn, msg, closeIt) {
     App.sheet = null;
     App.sheetNew = false;
   }
-  showLoading('Updating schedule');
+  showLoading('Updating');
   render();
   requestAnimationFrame(() =>
     setTimeout(() => {
@@ -1292,19 +1140,17 @@ function confirmHTML() {
   );
 }
 
-/* Games per player: scheduled total and how many are already logged as done. */
+/* Games per player: all games assigned so far, and how many are finished. */
 function gameStats(S) {
   const per = {};
   allNames(S).forEach(
     (n) => (per[n] = { name: n, total: 0, done: 0, late: ((S.baseline || {})[n] || 0) > 0 }),
   );
-  S.rounds.forEach((rd) =>
-    rd.matches.forEach((m) =>
-      m.a.concat(m.b).forEach((p) => {
-        per[p].total++;
-        if (m.done) per[p].done++;
-      }),
-    ),
+  S.matches.forEach((m) =>
+    m.a.concat(m.b).forEach((p) => {
+      per[p].total++;
+      if (m.done) per[p].done++;
+    }),
   );
   return Object.values(per)
     .filter((p) => p.total > 0 || S.active.includes(p.name))
@@ -1324,9 +1170,10 @@ function statsSheet() {
     return n.length > 3 ? n.length + ' players' : n.map(esc).join(', ');
   };
   const tiles = even
-    ? '<div class="tiles one"><div class="tile"><span>Everyone plays</span><b>' +
+    ? '<div class="tiles one"><div class="tile"><span>Everyone has played</span><b>' +
       max +
-      ' games</b></div></div>'
+      (max === 1 ? ' game' : ' games') +
+      '</b></div></div>'
     : '<div class="tiles">' +
       '<div class="tile hi"><span>Most games</span><b>' +
       who(max) +
@@ -1372,22 +1219,13 @@ function statsSheet() {
     tiles +
       '<div class="sbars">' +
       bars +
-      '</div><p class="note">The solid part is played and logged. The rest is still to come.' +
+      '</div><p class="note">The solid part is finished. The lighter part is on court now or up next.' +
       lateNote +
       '</p><button class="btn quiet" data-act="open-history">All-time results and backup</button>',
   );
 }
 
 /* ---------- actions ---------- */
-function goRound(r, dir) {
-  if (!App.S) return;
-  const n = Math.min(Math.max(0, r), App.S.rounds.length - 1);
-  if (n === App.vr) return;
-  App.vr = n;
-  App.anim = dir || 'go';
-  save();
-  render();
-}
 /* Keeps the session in the saved results. Called before it is replaced or discarded. */
 function archiveCurrent() {
   const rec = App.S && Archive.compactSession(App.S);
@@ -1510,11 +1348,6 @@ function onAction(act, el) {
       save();
       render();
       break;
-    case 'min':
-      App.cfg.minutes = Math.min(40, Math.max(10, App.cfg.minutes + +d.d));
-      save();
-      render();
-      break;
     case 'open-roster':
       openSheet({ type: 'roster' }, el);
       break;
@@ -1560,12 +1393,7 @@ function onAction(act, el) {
       break;
     }
     case 'generate': {
-      if (
-        App.busy ||
-        App.picked.size < 4 ||
-        planSlots(App.cfg.wins, App.cfg.courts, App.cfg.minutes).rounds < 1
-      )
-        break;
+      if (App.busy || App.picked.size < 4) break;
       App.busy = true;
       render();
       setTimeout(() => {
@@ -1573,7 +1401,6 @@ function onAction(act, el) {
         archiveCurrent();
         App.S = newSession(App.cfg, names);
         App.view = 'schedule';
-        App.vr = 0;
         App.anim = 'in';
         App.busy = false;
         hideToast(true);
@@ -1596,34 +1423,20 @@ function onAction(act, el) {
       save();
       render();
       break;
-    case 'prev':
-      goRound(App.vr - 1, 'prev');
-      break;
-    case 'next':
-      goRound(App.vr + 1, 'next');
-      break;
-    case 'goto':
-      goRound(+d.r, 'go');
-      break;
     case 'menu':
       openSheet({ type: 'menu' }, el);
       break;
     case 'full':
       openSheet({ type: 'full' }, el);
       break;
-    case 'jump':
-      App.sheet = null;
-      App.sheetNew = false;
-      App.vr = +d.r;
-      App.anim = 'go';
-      save();
-      render();
-      break;
     case 'players':
       openSheet({ type: 'players' }, el);
       break;
+    case 'open-courts':
+      openSheet({ type: 'courts' }, el);
+      break;
     case 'player':
-      openSheet({ type: 'change', r: +d.r, name: d.name, mode: 'rest' }, el);
+      openSheet({ type: 'change', name: d.name, mode: 'rest' }, el);
       break;
     case 'result':
       openSheet({ type: 'result', id: d.id }, el);
@@ -1639,131 +1452,90 @@ function onAction(act, el) {
       break;
     case 'swap': {
       const name = sh.name,
-        w = d.with,
-        round = S.rounds[sh.r],
-        loc = findPlayer(round, name);
-      const msg =
-        loc && loc.rest
-          ? name + ' plays in place of ' + w + '. Later rounds updated.'
-          : round.rest.includes(w)
-            ? w + ' takes ' + name + '’s spot. Later rounds updated.'
-            : name + ' and ' + w + ' swapped. Later rounds updated.';
-      mutate(() => swapPlayers(S, sh.r, name, w), msg);
+        w = d.with;
+      const msg = !locate(S, name)
+        ? name + ' plays in place of ' + w + '.'
+        : isFree(S, w)
+          ? w + ' takes ' + name + '’s spot.'
+          : name + ' and ' + w + ' swapped.';
+      mutate(() => swapPlayers(S, name, w), msg);
       break;
     }
-    case 'skip':
-      mutate(() => {
-        dropMatchFor(S, sh.r, sh.name, false);
-        buildFrom(S, sh.r + 1, 150);
-      }, sh.name + ' rests and the match is skipped. Later rounds updated.');
-      break;
     case 'out':
-      mutate(
-        () => playerOut(S, sh.name, sh.r, d.with || null),
-        sh.name + ' is out for today. Later rounds updated.',
-      );
+      mutate(() => playerOut(S, sh.name, d.with || null), sh.name + ' is out for today.');
       break;
     case 'win': {
       const f = findMatch(S, sh.id);
-      let started = null;
+      if (!f) break;
+      const slot = f.c,
+        changed = f.done;
+      let made = [];
       mutate(
         () => {
-          setResult(S, sh.id, d.side, []);
-          const rd = S.rounds[f.r];
-          if (rd.matches.every((m) => m.done)) {
-            if (f.r === App.vr && f.r < S.rounds.length - 1) {
-              App.vr = curRound(S);
-              App.anim = 'next';
-            }
-          } else started = startEarly(S, f.r, f.m.court);
+          setResult(S, sh.id, d.side);
+          if (!changed) made = fill(S);
         },
-        () =>
-          started
-            ? 'Winner saved. Court ' + f.m.court + ' next: ' + matchText(started) + '.'
-            : 'Winner saved.',
+        () => {
+          if (changed) return 'Winner changed.';
+          if (made.length) {
+            const nm = made.find((x) => x.c === slot) || made[0];
+            return 'Winner saved. Court ' + courtLabel(S, nm.c) + ' next: ' + matchText(nm) + '.';
+          }
+          return (
+            'Winner saved.' +
+            (S.courts[slot - 1].open && !pendingOn(S, slot)
+              ? ' Court ' + courtLabel(S, slot) + ' is waiting for players.'
+              : '')
+          );
+        },
       );
       break;
     }
     case 'reopen':
-      mutate(() => reopen(S, sh.id), 'Winner cleared.');
+      if (!canReopen(S, sh.id)) {
+        showToast('This winner cannot be cleared now. The court has moved on.', false);
+        break;
+      }
+      mutate(() => {
+        reopen(S, sh.id);
+        fill(S);
+      }, 'Winner cleared.');
       break;
     case 'toggle-active': {
-      const n = d.name,
-        cur = curRound(S);
+      const n = d.name;
       if (S.active.includes(n)) {
-        const round = S.rounds[cur];
+        const loc = locate(S, n);
         let rep = null;
-        if (round && round.rest.length) {
+        if (loc && !loc.m.started) {
           const per = summarize(S).per;
-          rep = round.rest.slice().sort((x, y) => per[x].played - per[y].played)[0];
+          rep =
+            freePlayers(S)
+              .filter((p) => p !== n)
+              .sort((x, y) => per[x].played - per[y].played)[0] || null;
         }
-        mutate(() => playerOut(S, n, cur, rep), n + ' is out for today. Later rounds updated.', false);
-      } else mutate(() => playerIn(S, n), n + ' is back in from the next round.', false);
+        mutate(() => playerOut(S, n, rep), n + ' is out for today.', false);
+      } else mutate(() => playerIn(S, n), n + ' is back in.', false);
       break;
     }
     case 'shuffle':
-      openSheet({ type: 'shuffle' }, el);
+      if (S && S.matches.some((m) => !m.done && !m.started)) openSheet({ type: 'shuffle' }, el);
       break;
     case 'shuffle-do': {
       const mode = d.mode === 'partners' ? 'partners' : 'random';
       mutate(
-        () => reshuffle(S, 300, mode),
-        mode === 'partners' ? 'Remaining rounds rebuilt for fresh partners.' : 'Remaining rounds shuffled.',
+        () => reroll(S, mode),
+        mode === 'partners' ? 'Matches up next rebuilt for fresh partners.' : 'Matches up next shuffled.',
       );
       break;
     }
-    case 'add-hour': {
-      let n = 0;
-      mutate(
-        () => {
-          n = extendBy(S, 60);
-        },
-        () => '1 hour added, ' + n + ' more rounds.',
-      );
-      break;
-    }
-    case 'add-round':
-      mutate(() => {
-        extendBy(S, S.minutes);
-      }, 'Round added.');
-      break;
     case 'court-close': {
-      const c = +d.c,
-        r = +d.r;
-      mutate(() => setCourtAt(S, c, r, false), 'Court ' + c + ' skipped for round ' + (r + 1) + '.');
-      break;
-    }
-    case 'court-on-round': {
-      const c = +d.c,
-        r = +d.r;
-      mutate(() => setCourtAt(S, c, r, true), 'Court ' + c + ' is back for round ' + (r + 1) + '.');
-      break;
-    }
-    case 'del-round': {
-      const r = +d.r;
-      askConfirm({
-        title: 'Delete round ' + (r + 1) + '?',
-        body: 'Its matches are removed and the later rounds move up. You can undo right after.',
-        label: 'Delete round',
-        act: 'del-round',
-        run: () =>
-          mutate(
-            () => {
-              deleteRound(S, r);
-              App.vr = Math.min(r, S.rounds.length - 1);
-            },
-            'Round ' + (r + 1) + ' deleted.',
-          ),
-      });
+      const c = +d.c;
+      mutate(() => setCourtOpen(S, c, false), 'Court ' + courtLabel(S, c) + ' closed. No new matches there.');
       break;
     }
     case 'court-open': {
-      const c = +d.c,
-        turnOn = act === 'court-open';
-      mutate(
-        () => setCourt(S, c, turnOn),
-        'Court ' + c + (turnOn ? ' opened from this round.' : ' closed from this round.'),
-      );
+      const c = +d.c;
+      mutate(() => setCourtOpen(S, c, true), 'Court ' + courtLabel(S, c) + ' is open.');
       break;
     }
     case 'ask-new':
@@ -1786,14 +1558,14 @@ function onAction(act, el) {
       });
       break;
     case 'start': {
-      const f = S && findMatch(S, d.id);
-      if (!f || f.m.done || f.m.started) break;
+      const m = S && findMatch(S, d.id);
+      if (!m || m.done || m.started) break;
       App.undo = JSON.stringify(S);
       startMatch(S, d.id);
       Sound.ok();
       save();
       render();
-      showToast('Court ' + f.m.court + ' started.', true);
+      showToast('Court ' + courtLabel(S, m.c) + ' started.', true);
       break;
     }
     case 'rename-start':
@@ -1837,7 +1609,6 @@ function onAction(act, el) {
         App.undo = null;
         hideToast(true);
         Sound.undo();
-        App.vr = Math.min(App.vr, App.S.rounds.length - 1);
         save();
         render();
       }
@@ -1856,13 +1627,24 @@ $app.addEventListener('click', (e) => {
   App.lastAct = el.dataset.act;
   onAction(el.dataset.act, el);
 });
+/* Court numbers: digits only while typing, and each court needs its own number. */
+$app.addEventListener('input', (e) => {
+  if (/^(cn|sc)\d$/.test(e.target.id || '')) e.target.value = e.target.value.replace(/\D/g, '').slice(0, 2);
+});
 $app.addEventListener('change', (e) => {
-  const m = /^w(\d)l$/.exec(e.target.id || '');
-  if (m) {
-    App.cfg.wins[+m[1]].len = +e.target.value;
+  const m = /^cn(\d)$/.exec(e.target.id || '');
+  if (!m) return;
+  const i = +m[1],
+    next = cleanLabel(e.target.value),
+    other = App.cfg.courts > 1 ? App.cfg.labels[1 - i] : null;
+  if (next && next !== other) {
+    App.cfg.labels[i] = next;
+    e.target.value = next;
     save();
-    render();
+    return;
   }
+  showToast(next ? 'Each court needs its own number.' : 'Use a court number from 1 to 99.', false);
+  render();
 });
 $app.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -1895,6 +1677,21 @@ $app.addEventListener('submit', (e) => {
     App.sheet.editing = null;
     render();
     showToast(from + ' is now ' + to + '.', false);
+  } else if (e.target.id === 'f-courts') {
+    const S = App.S;
+    const vals = S.courts.map((_, i) => cleanLabel(document.getElementById('sc' + i).value));
+    if (vals.some((v) => !v)) {
+      showToast('Use a court number from 1 to 99.', false);
+      return;
+    }
+    if (new Set(vals).size !== vals.length) {
+      showToast('Each court needs its own number.', false);
+      return;
+    }
+    S.courts.forEach((c, i) => (c.label = vals[i]));
+    save();
+    closeSheet();
+    showToast('Court numbers saved.', false);
   } else if (e.target.id === 'f-late') {
     const inp = document.getElementById('latename'),
       name = inp.value.trim();
@@ -1918,27 +1715,5 @@ document.addEventListener('keydown', (e) => {
     render();
   } else if (App.sheet) closeSheet();
 });
-let tx = 0,
-  ty = 0;
-$app.addEventListener(
-  'touchstart',
-  (e) => {
-    tx = e.touches[0].clientX;
-    ty = e.touches[0].clientY;
-  },
-  { passive: true },
-);
-$app.addEventListener(
-  'touchend',
-  (e) => {
-    if (App.view !== 'schedule' || App.sheet || !App.S) return;
-    const dx = e.changedTouches[0].clientX - tx,
-      dy = e.changedTouches[0].clientY - ty;
-    if (Math.abs(dx) > 70 && Math.abs(dy) < 40 && !e.target.closest('.upnext'))
-      goRound(App.vr + (dx < 0 ? 1 : -1), dx < 0 ? 'next' : 'prev');
-  },
-  { passive: true },
-);
-
 load();
 render();
