@@ -85,20 +85,83 @@ const COURT_SVG =
   '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
   '</svg>';
 /* A shuttlecock that flies back and forth over a court while a game is being played.
-   Drawn pointing right. The phase comes from when the game started, so redrawing the screen
-   does not make it jump back to the start. */
-const SHUTTLE_MS = 1700;
+   Each flight lands on a random spot on the far side, then comes back to a random spot on
+   the near side. Where it is lives in `legs`, not in the page, so redrawing the screen does
+   not make it jump. Positions are percentages of the court. */
 function shuttleHTML(m) {
-  const ph = -((Date.now() - (m.startedAt || 0)) % SHUTTLE_MS);
   return (
-    '<span class="shuttle" aria-hidden="true" style="--ph:' +
-    ph +
-    'ms"><svg viewBox="0 0 24 12" fill="none">' +
+    '<span class="shuttle-shadow" data-id="' +
+    m.id +
+    '" aria-hidden="true"></span><span class="shuttle" data-id="' +
+    m.id +
+    '" aria-hidden="true"><svg viewBox="0 0 24 12" fill="none">' +
     '<path d="M15 6L2.500 1Q0.800 6 2.500 11Z" fill="#fbfaf5" stroke="#26302a" stroke-width="0.800" stroke-linejoin="round"/>' +
     '<path d="M13 6L3 3.200M13 6L2.200 6M13 6L3 8.800" stroke="#26302a" stroke-opacity="0.350" stroke-width="0.600"/>' +
     '<circle cx="18.200" cy="6" r="4" fill="#e9a27a" stroke="#26302a" stroke-width="0.800"/></svg></span>'
   );
 }
+const Shuttle = (() => {
+  const legs = new Map();
+  const ASPECT = 134 / 61; /* the court is wider than tall, so a turn in x counts for more */
+  let raf = 0;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const calm = () =>
+    !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function nextLeg(from, toRight, t0) {
+    const to = { x: toRight ? rnd(58, 90) : rnd(10, 42), y: rnd(14, 86) };
+    const far = Math.hypot(to.x - from.x, (to.y - from.y) * 0.6);
+    const apex = Math.min(rnd(16, 32), (from.y + to.y) / 2 - 4);
+    return { from, to, apex: Math.max(apex, 6), t0, dur: 650 + far * 9 + rnd(0, 250), right: toRight };
+  }
+  function place(el, shadow, L, p) {
+    const x = L.from.x + (L.to.x - L.from.x) * p,
+      ground = L.from.y + (L.to.y - L.from.y) * p,
+      lift = L.apex * 4 * p * (1 - p);
+    const dx = (L.to.x - L.from.x) * ASPECT,
+      dy = L.to.y - L.from.y - L.apex * 4 * (1 - 2 * p);
+    const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+    el.style.left = x + '%';
+    el.style.top = ground - lift + '%';
+    el.style.transform = 'translate(-50%,-50%) rotate(' + ang.toFixed(1) + 'deg)';
+    if (shadow) {
+      shadow.style.left = x + '%';
+      shadow.style.top = ground + '%';
+      shadow.style.opacity = (0.34 - 0.2 * Math.sin(Math.PI * p)).toFixed(2);
+    }
+  }
+  function frame(now) {
+    const els = document.querySelectorAll('.shuttle[data-id]');
+    els.forEach((el) => {
+      const id = el.dataset.id;
+      let L = legs.get(id);
+      if (!L) {
+        L = nextLeg({ x: rnd(24, 36), y: rnd(30, 70) }, true, now);
+        legs.set(id, L);
+      }
+      if (now - L.t0 > 4000) L.t0 = now; /* the tab was in the background */
+      while (now - L.t0 >= L.dur) {
+        L = nextLeg(L.to, !L.right, L.t0 + L.dur);
+        legs.set(id, L);
+      }
+      place(el, el.previousElementSibling, L, (now - L.t0) / L.dur);
+    });
+    return els.length;
+  }
+  /* Called after every redraw. Puts each shuttle where it should be right away, then keeps
+     them moving. Games that are over are forgotten. */
+  function sync() {
+    const live = new Set([...document.querySelectorAll('.shuttle[data-id]')].map((e) => e.dataset.id));
+    [...legs.keys()].forEach((id) => live.has(id) || legs.delete(id));
+    if (!live.size || calm()) return;
+    frame(performance.now());
+    if (raf) return;
+    const loop = (now) => {
+      raf = frame(now) ? requestAnimationFrame(loop) : 0;
+    };
+    raf = requestAnimationFrame(loop);
+  }
+  return { sync };
+})();
 const BG_COURT =
   '<svg class="bg-court" viewBox="-4 -4 142 69" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="0.8">' +
   COURT_LINES +
@@ -1010,6 +1073,7 @@ function render() {
     const dlg = $app.querySelector('.dlg');
     if (dlg) dlg.focus({ preventScroll: true });
   }
+  Shuttle.sync();
 }
 /* ---------- toast ----------
    The toast lives in its own layer outside #app, so redrawing the screen never touches it.
