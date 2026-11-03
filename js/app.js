@@ -84,6 +84,21 @@ const COURT_SVG =
   '</g>' +
   '<line class="net" x1="67" y1="-2.500" x2="67" y2="63.500" stroke-opacity="0.5" stroke-width="1.100" stroke-dasharray="1.600 1"/>' +
   '</svg>';
+/* A shuttlecock that flies back and forth over a court while a game is being played.
+   Drawn pointing right. The phase comes from when the game started, so redrawing the screen
+   does not make it jump back to the start. */
+const SHUTTLE_MS = 1700;
+function shuttleHTML(m) {
+  const ph = -((Date.now() - (m.startedAt || 0)) % SHUTTLE_MS);
+  return (
+    '<span class="shuttle" aria-hidden="true" style="--ph:' +
+    ph +
+    'ms"><svg viewBox="0 0 24 12" fill="none">' +
+    '<path d="M15 6L2.500 1Q0.800 6 2.500 11Z" fill="#fbfaf5" stroke="#26302a" stroke-width="0.800" stroke-linejoin="round"/>' +
+    '<path d="M13 6L3 3.200M13 6L2.200 6M13 6L3 8.800" stroke="#26302a" stroke-opacity="0.350" stroke-width="0.600"/>' +
+    '<circle cx="18.200" cy="6" r="4" fill="#e9a27a" stroke="#26302a" stroke-width="0.800"/></svg></span>'
+  );
+}
 const BG_COURT =
   '<svg class="bg-court" viewBox="-4 -4 142 69" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="0.8">' +
   COURT_LINES +
@@ -356,6 +371,7 @@ function matchCard(S, m) {
     '</div></header>' +
     '<div class="court-slot"><div class="court">' +
     COURT_SVG +
+    (m.started ? shuttleHTML(m) : '') +
     pill(m.a[0], 'a', 0) +
     pill(m.a[1], 'a', 1) +
     pill(m.b[0], 'b', 0) +

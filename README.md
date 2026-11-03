@@ -9,6 +9,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Roster:** tap to pick who is attending, add guests, remove names.
 - **Courts:** 1 or 2 courts. Name them with the numbers painted on your courts, like 5 and 6. Numbers only, 1 to 99. You can change them mid-session from the ⋯ menu.
 - **Live matches, no future rounds:** only the matches on court are shown. When a court finishes, only that court gets a new match, made from players who are not on any court right now. The other court keeps playing untouched.
+- **Shuttlecock:** while a game is playing, a shuttlecock flies back and forth over its court. It stops if the phone is set to reduce motion.
 - **Played list:** finished games show under **Played**, newest first. Tap one to change its winner.
 - **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates and opponents are avoided, opponents first.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.

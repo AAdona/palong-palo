@@ -1966,3 +1966,86 @@ html.theme-fade *::after {
 .footnav.two {
   grid-template-columns: 1fr 1fr;
 }
+
+/* ---------- shuttlecock while a game is on ---------- */
+.shuttle {
+  position: absolute;
+  left: 34%;
+  top: 60%;
+  width: 8%;
+  z-index: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 28%));
+  transform: translate(-50%, -50%);
+  animation:
+    shuttle-x 1.7s linear var(--ph, 0ms) infinite,
+    shuttle-y 1.7s linear var(--ph, 0ms) infinite,
+    shuttle-r 1.7s linear var(--ph, 0ms) infinite;
+}
+.shuttle svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Across the court and back. The height rises fast and falls faster, like a real clear. */
+@keyframes shuttle-x {
+  0%,
+  100% {
+    left: 34%;
+  }
+  50% {
+    left: 66%;
+  }
+}
+@keyframes shuttle-y {
+  0% {
+    top: 62%;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  25% {
+    top: 26%;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+  }
+  50% {
+    top: 62%;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  75% {
+    top: 26%;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+  }
+  100% {
+    top: 62%;
+  }
+}
+/* The cork leads. It turns over at each hit. */
+@keyframes shuttle-r {
+  0% {
+    transform: translate(-50%, -50%) rotate(-32deg);
+  }
+  25% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  49.9% {
+    transform: translate(-50%, -50%) rotate(34deg);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(212deg);
+  }
+  75% {
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+  99.9% {
+    transform: translate(-50%, -50%) rotate(146deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-32deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shuttle {
+    animation: none;
+    left: 50%;
+    top: 40%;
+  }
+}
