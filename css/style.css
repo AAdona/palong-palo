@@ -1966,3 +1966,35 @@ html.theme-fade *::after {
 .footnav.two {
   grid-template-columns: 1fr 1fr;
 }
+
+/* ---------- shuttlecock while a game is on ----------
+   The position and turn are set from the script. These are only the size and the resting
+   look, which is also what shows when the phone is set to reduce motion. */
+.shuttle,
+.shuttle-shadow {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+.shuttle {
+  left: 50%;
+  top: 40%;
+  width: 8%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 28%));
+}
+.shuttle svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.shuttle-shadow {
+  left: 50%;
+  top: 60%;
+  width: 4.5%;
+  aspect-ratio: 2.2;
+  border-radius: 50%;
+  background: #1c2a1f;
+  opacity: 0.22;
+  transform: translate(-50%, -50%);
+}
