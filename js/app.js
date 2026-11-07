@@ -375,15 +375,15 @@ function matchCard(S, m) {
       left +
       ';top:' +
       top +
-      '" data-act="player" data-name="' +
+      '" data-act="player" data-id="' +
+      m.id +
+      '" data-name="' +
       esc(name) +
-      '"' +
-      (m.started ? ' disabled' : '') +
-      ' aria-label="' +
+      '" aria-label="' +
       esc(name) +
       ', team ' +
       side.toUpperCase() +
-      (m.started ? '' : '. Change player') +
+      (m.started ? '. Fix who played' : '. Change player') +
       '">' +
       '<span>' +
       esc(name) +
@@ -685,6 +685,39 @@ function changeSheet(sh) {
   return sheetShell(sh.name, 'Court ' + courtLabel(S, m.c) + ', ' + pl(sh.name) + ' played', body);
 }
 
+function fixSheet(sh) {
+  const S = App.S,
+    m = findMatch(S, sh.id);
+  if (!m || ![...m.a, ...m.b].includes(sh.name)) return '';
+  const per = summarize(S).per,
+    inMatch = [...m.a, ...m.b],
+    busy = m.done ? new Set() : new Set([...S.matches.filter((x) => !x.done && x !== m)].flatMap((x) => [...x.a, ...x.b]));
+  const list = allNames(S)
+    .filter((p) => !inMatch.includes(p) && !busy.has(p))
+    .map(
+      (p) =>
+        '<button class="cand free" data-act="fix" data-with="' +
+        esc(p) +
+        '"><b>' +
+        esc(p) +
+        '</b><small>' +
+        (per[p] ? per[p].played : 0) +
+        ' played</small></button>',
+    )
+    .join('');
+  return sheetShell(
+    'Who really played?',
+    'Court ' + courtLabel(S, m.c) + ', instead of ' + sh.name,
+    '<div class="group"><h3>Pick who played instead of ' +
+      esc(sh.name) +
+      '</h3>' +
+      (list
+        ? '<div class="cands">' + list + '</div>'
+        : '<p class="note">Nobody else is free to swap in. Add a late player from Players first.</p>') +
+      '</div><p class="note">The games and results of both players update right away.</p>',
+  );
+}
+
 function resultSheet(sh) {
   const S = App.S,
     m = findMatch(S, sh.id);
@@ -711,7 +744,12 @@ function resultSheet(sh) {
   return sheetShell(
     'Court ' + courtLabel(S, m.c),
     'Best of 3 to 15',
-    '<div class="group"><h3>Tap the winning team</h3>' + wb('a') + wb('b') + '</div>' + extra,
+    '<div class="group"><h3>Tap the winning team</h3>' + wb('a') + wb('b') + '</div>' + extra +
+      '<div class="group"><h3>Someone else played?</h3><div class="cands">' +
+      [...m.a, ...m.b]
+        .map((p) => '<button class="cand" data-act="fix-open" data-name="' + esc(p) + '"><b>' + esc(p) + '</b><small>Change</small></button>')
+        .join('') +
+      '</div></div>',
   );
 }
 
@@ -1025,6 +1063,7 @@ function sheetHTML() {
   if (!sh) return '';
   if (sh.type === 'change') return changeSheet(sh);
   if (sh.type === 'result') return resultSheet(sh);
+  if (sh.type === 'fix') return fixSheet(sh);
   if (sh.type === 'players') return playersSheet();
   if (sh.type === 'full') return fullSheet();
   if (sh.type === 'menu') return menuSheet();
@@ -1515,9 +1554,21 @@ function onAction(act, el) {
     case 'open-courts':
       openSheet({ type: 'courts' }, el);
       break;
-    case 'player':
-      openSheet({ type: 'change', name: d.name, mode: 'rest' }, el);
+    case 'player': {
+      const pm = findMatch(App.S, d.id);
+      if (pm && pm.started) openSheet({ type: 'fix', id: pm.id, name: d.name }, el);
+      else openSheet({ type: 'change', name: d.name, mode: 'rest' }, el);
       break;
+    }
+    case 'fix-open':
+      openSheet({ type: 'fix', id: sh.id, name: d.name }, el);
+      break;
+    case 'fix': {
+      const from = sh.name,
+        id = sh.id;
+      mutate(() => replacePlayed(App.S, id, from, d.with), d.with + ' played instead of ' + from + '.');
+      break;
+    }
     case 'result':
       openSheet({ type: 'result', id: d.id }, el);
       break;

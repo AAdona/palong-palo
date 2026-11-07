@@ -414,3 +414,23 @@ test('someone marked out stays in the players list so they can be brought back',
   E.playerIn(S, 'Renamed');
   assert.ok(S.active.includes('Renamed') && !S.left.includes('Renamed'));
 });
+
+test('replacePlayed fixes who played, in started and finished matches', () => {
+  const E2 = require('../js/engine.js');
+  const S = E2.newSession({ courts: 1, labels: ['1'] }, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']);
+  E2.fill(S);
+  const m = S.matches[0];
+  E2.startMatch(S, m.id);
+  const out = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'].filter((p) => ![...m.a, ...m.b].includes(p))[0];
+  const from = m.a[0];
+  assert.equal(E2.replacePlayed(S, m.id, from, m.b[0]), false); // already in match
+  assert.equal(E2.replacePlayed(S, m.id, from, out), true);
+  assert.ok(m.a.includes(out) && !m.a.includes(from));
+  E2.setResult(S, m.id, 'a');
+  const done = S.matches.find((x) => x.done);
+  const next = S.matches.find((x) => !x.done);
+  if (next) {
+    const inNext = next.a[0];
+    assert.equal(E2.replacePlayed(S, done.id, done.a[0], inNext), true); // finished: allowed
+  }
+});
