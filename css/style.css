@@ -630,10 +630,6 @@ input[type='number'] {
   background: var(--team-b);
   border-color: var(--team-b-line);
 }
-.pill:disabled {
-  cursor: default;
-  color: var(--color-ink);
-}
 .pill.lose {
   opacity: 0.62;
 }

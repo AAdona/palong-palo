@@ -391,6 +391,20 @@ function swapPlayers(S, p, q) {
   lp.m[lp.side][lp.i] = q;
   return true;
 }
+/* Corrects who really played in a match, started or finished. The new player must not be in
+   this match, and for a match still on court must not be in another unfinished match. */
+function replacePlayed(S, id, from, to) {
+  const m = findMatch(S, id);
+  if (!m || from === to) return false;
+  const all = [...m.a, ...m.b];
+  if (!all.includes(from) || all.includes(to)) return false;
+  if (!m.done && busySet(S).has(to)) return false;
+  const side = m.a.includes(from) ? 'a' : 'b';
+  m[side][m[side].indexOf(from)] = to;
+  if (!(S.active.includes(to) || (S.left || []).includes(to))) S.active.push(to);
+  fill(S);
+  return true;
+}
 /* Takes someone off for the rest of the day. If they are in a match that has not started,
    a free player steps in, or the match is dropped and made again. A match already on court
    is left to finish. */
@@ -500,6 +514,7 @@ if (typeof module !== 'undefined')
     canReopen,
     findMatch,
     swapPlayers,
+    replacePlayed,
     playerOut,
     playerIn,
     setCourtOpen,
