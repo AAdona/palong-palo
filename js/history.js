@@ -140,6 +140,11 @@ const Archive = (() => {
       }),
     );
   }
+  function namesIn(records) {
+    const set = new Set();
+    records.forEach((rec) => rec.matches.forEach((m) => m.a.concat(m.b).forEach((n) => set.add(n))));
+    return Array.from(set);
+  }
   function renameInRecords(records, from, to) {
     const sw = (x) => (x === from ? to : x);
     records.forEach((rec) =>
@@ -208,6 +213,7 @@ const Archive = (() => {
     buildExport,
     parseExport,
     renameConflict,
+    namesIn,
     renameInRecords,
     computeStats,
   };

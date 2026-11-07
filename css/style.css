@@ -1998,3 +1998,47 @@ html.theme-fade *::after {
   opacity: 0.22;
   transform: translate(-50%, -50%);
 }
+
+/* Tap a name to rename it (Players and Saved results) */
+.namebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.namebtn .nt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.namebtn svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--color-ink-muted);
+}
+.rk .namebtn {
+  min-height: 34px;
+}
+.prow-edit,
+.rk-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.prow-edit input,
+.rk-edit input {
+  flex: 1 1 auto;
+  min-width: 0;
+}

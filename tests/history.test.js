@@ -130,3 +130,11 @@ test('renaming changes saved results and blocks a clash inside one match', () =>
   A.renameInRecords(list, 'Ana', 'Zed');
   assert.deepEqual(list[0].matches[0].a, ['Zed', 'Ben']);
 });
+
+test('namesIn lists every name in the records once', () => {
+  const recs = [
+    { id: 'a', created: 1, matches: [{ r: 1, c: 1, a: ['Ann', 'Bo'], b: ['Cy', 'Di'], w: 'a' }] },
+    { id: 'b', created: 2, matches: [{ r: 1, c: 1, a: ['Ann', 'Ed'], b: ['Cy', 'Di'], w: 'b' }] },
+  ];
+  assert.deepEqual(A.namesIn(recs).sort(), ['Ann', 'Bo', 'Cy', 'Di', 'Ed']);
+});

@@ -47,6 +47,8 @@ const I = {
   people:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="7.5" cy="7" r="3"/><path d="M2 16c.6-3 2.7-4.5 5.5-4.5S12.400 13 13 16"/><path d="M13 4.200a3 3 0 010 5.600M15 11.800c1.800.5 2.800 1.800 3 4.200"/></svg>',
   list: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 5h9M7 10h9M7 15h9"/><circle cx="3.500" cy="5" r="0.900" fill="currentColor"/><circle cx="3.500" cy="10" r="0.900" fill="currentColor"/><circle cx="3.500" cy="15" r="0.900" fill="currentColor"/></svg>',
+  edit:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.500 16.500l.8-3.600 8.700-8.700a1.600 1.600 0 012.300 0l.5.5a1.600 1.600 0 010 2.300l-8.700 8.700z"/></svg>',
   plus: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>',
   shuffle:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h3c4 0 4 8 8 8h3M3 14h3c1.5 0 2.500-.8 3.300-1.900M11 7.100C11.800 6.400 12.800 6 14 6h3M15 3.500L17.500 6 15 8.500M15 11.500l2.500 2.500-2.500 2.500"/></svg>',
@@ -781,7 +783,7 @@ function fullSheet() {
   );
 }
 
-function playersSheet() {
+function playersSheet(sh) {
   const S = App.S,
     sm = summarize(S);
   const names = allNames(S);
@@ -789,11 +791,12 @@ function playersSheet() {
     .map((n) => {
       const p = sm.per[n],
         on = S.active.includes(n);
+      if (sh && sh.editing === n) return renameForm(n, 'prow-edit');
       return (
         '<div class="prow' +
         (on ? '' : ' off') +
         '"><span class="nm">' +
-        esc(n) +
+        nameBtn(n) +
         '</span><span class="num">' +
         p.played +
         '</span><span class="num">' +
@@ -833,7 +836,7 @@ function playersSheet() {
     I.plus +
     'Add</button></form>' +
     '<p class="note">Switching someone Out keeps them out of new matches. A game they are already playing finishes first. A late player can be picked for the next match.</p>' +
-    '<button class="btn quiet" data-act="open-roster">Rename or edit players list</button>';
+    '<button class="btn quiet" data-act="open-roster">Add or remove names on the players list</button>';
   return sheetShell('Players', sm.n + ' playing today', body);
 }
 
@@ -897,18 +900,39 @@ function courtsSheet() {
   );
 }
 
+function renameForm(n, cls) {
+  return (
+    '<form id="f-rename" class="' +
+    (cls || 'rrow') +
+    ' edit" data-from="' +
+    esc(n) +
+    '"><input id="renameinp" type="text" value="' +
+    esc(n) +
+    '" autocomplete="off" maxlength="20" aria-label="New name for ' +
+    esc(n) +
+    '"><button class="btn sm primary" type="submit">Save</button>' +
+    '<button class="btn sm quiet" type="button" data-act="rename-cancel">Cancel</button></form>'
+  );
+}
+function nameBtn(n) {
+  return (
+    '<button class="namebtn" data-act="rename-start" data-name="' +
+    esc(n) +
+    '" aria-label="Rename ' +
+    esc(n) +
+    '"><span class="nt">' +
+    esc(n) +
+    '</span>' +
+    I.edit +
+    '</button>'
+  );
+}
+
 function rosterSheet(sh) {
   const rows = App.roster
     .map((n) =>
       n === sh.editing
-        ? '<form id="f-rename" class="rrow edit" data-from="' +
-          esc(n) +
-          '"><input id="renameinp" type="text" value="' +
-          esc(n) +
-          '" autocomplete="off" maxlength="20" aria-label="New name for ' +
-          esc(n) +
-          '"><button class="btn sm primary" type="submit">Save</button>' +
-          '<button class="btn sm quiet" type="button" data-act="rename-cancel">Cancel</button></form>'
+        ? renameForm(n)
         : '<div class="rrow"><span>' +
           esc(n) +
           '</span><div class="mh-a"><button class="btn sm quiet" data-act="rename-start" data-name="' +
@@ -932,7 +956,7 @@ function rosterSheet(sh) {
   );
 }
 
-function historySheet() {
+function historySheet(sh) {
   const all = Archive.allSessions(App.history, App.S);
   const st = Archive.computeStats(all);
   let body;
@@ -949,11 +973,12 @@ function historySheet() {
           place = i + 1;
           prev = key;
         }
+        if (sh && sh.editing === p.name) return renameForm(p.name, 'rk-edit');
         return (
           '<div class="rk rk4" role="row"><span class="num">' +
           place +
           '</span><span class="nm">' +
-          esc(p.name) +
+          nameBtn(p.name) +
           '</span><span class="num">' +
           p.w +
           '-' +
@@ -1025,11 +1050,11 @@ function sheetHTML() {
   if (!sh) return '';
   if (sh.type === 'change') return changeSheet(sh);
   if (sh.type === 'result') return resultSheet(sh);
-  if (sh.type === 'players') return playersSheet();
+  if (sh.type === 'players') return playersSheet(sh);
   if (sh.type === 'full') return fullSheet();
   if (sh.type === 'menu') return menuSheet();
   if (sh.type === 'roster') return rosterSheet(sh);
-  if (sh.type === 'history') return historySheet();
+  if (sh.type === 'history') return historySheet(sh);
   if (sh.type === 'shuffle') return shuffleSheet();
   if (sh.type === 'courts') return courtsSheet();
   if (sh.type === 'stats') return statsSheet();
@@ -1316,7 +1341,7 @@ function archiveCurrent() {
 function renameProblem(from, to) {
   if (!to) return 'Type a name first.';
   const low = to.toLowerCase();
-  const names = App.roster.concat(App.S ? allNames(App.S) : []);
+  const names = App.roster.concat(App.S ? allNames(App.S) : [], Archive.namesIn(App.history));
   if (names.some((n) => n !== from && n.toLowerCase() === low)) return to + ' is already on the list.';
   if (Archive.renameConflict(App.history, from, to))
     return from + ' and ' + to + ' have played in the same match, so they cannot share a name.';
@@ -1649,7 +1674,7 @@ function onAction(act, el) {
       break;
     }
     case 'rename-start':
-      if (sh && sh.type === 'roster') {
+      if (sh && ['roster', 'players', 'history'].includes(sh.type)) {
         sh.editing = d.name;
         render();
       }

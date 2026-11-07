@@ -20,7 +20,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Results:** pick the winning team once a game is started. No scores are tracked. A winner can be cleared while its court has not moved on.
 - **Saved results:** logged winners are kept when you start a new session. **Saved results and backup** (on the setup screen and in the ⋯ menu) shows all-time wins, losses, win rate and the best duo.
 - **Backup and import:** save all results to a `.json` file, and import it on the same or another phone. Importing adds new sessions and skips ones already saved, so importing twice is safe.
-- **Rename players:** in the players list (Add on the setup screen, or Players in a session). A rename updates the roster, the current session and saved results.
+- **Rename players, any time:** tap a name in Players (during or after games), in Saved results, or in the players list on the setup screen. A rename updates the roster, the current session, finished games and saved results. A name that is already used, or that would put the same person twice in one match, is refused.
 - **Standings:** wins and losses for the session, with who is leading.
 - **Dark mode:** Auto (follows the phone), Light or Dark. Pick it in the ⋯ menu, or with the sun/moon button on the setup screen. Remembered per device.
 - **Stats:** who has the most and fewest games, with a bar per player, plus a link to the all-time results.
