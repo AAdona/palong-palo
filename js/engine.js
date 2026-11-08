@@ -269,6 +269,10 @@ function summarize(S) {
     n: act.length,
     oppPct: pairs ? Math.round((faced / pairs) * 100) : 0,
     partnerPct: pairs ? Math.round((met / pairs) * 100) : 0,
+    pairTotal: (act.length * (act.length - 1)) / 2,
+    pairMet: met / 2,
+    allPaired: act.length > 1 && met === pairs,
+    allFaced: act.length > 1 && faced === pairs,
     avgFaced: act.length ? Math.round((faced / act.length) * 10) / 10 : 0,
   };
 }

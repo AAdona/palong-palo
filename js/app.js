@@ -381,6 +381,29 @@ function pairChip(S, m, side) {
   );
 }
 
+/* Progress toward everyone having teamed up with everyone. */
+function pairProgress(sm) {
+  if (sm.n < 4 || !sm.pairTotal) return '';
+  if (sm.allPaired)
+    return (
+      '<div class="allpaired" role="status">' +
+      I.check +
+      '<span><b>Everyone has teamed up with everyone.</b> ' +
+      (sm.allFaced ? 'And faced everyone too. ' : '') +
+      'Repeat partners from here on.</span></div>'
+    );
+  const pct = Math.round((sm.pairMet / sm.pairTotal) * 100);
+  return (
+    '<div class="pairprog" aria-label="Teammates met"><span>Teammates met <b>' +
+    sm.pairMet +
+    ' of ' +
+    sm.pairTotal +
+    '</b></span><span class="trk"><i style="width:' +
+    pct +
+    '%"></i></span></div>'
+  );
+}
+
 /* A court with a match: up next until Start game is pressed, then playing now. */
 function matchCard(S, m) {
   const slot = m.c,
@@ -592,7 +615,9 @@ function scheduleHTML() {
     (done.length === 1 ? ' game' : ' games') +
     ' played, ' +
     sm.n +
-    ' players</small></h1></div></div>' +
+    ' players</small></h1></div>' +
+    pairProgress(sm) +
+    '</div>' +
     courts +
     rest +
     played +

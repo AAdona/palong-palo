@@ -434,3 +434,17 @@ test('replacePlayed fixes who played, in started and finished matches', () => {
     assert.equal(E2.replacePlayed(S, done.id, done.a[0], inNext), true); // finished: allowed
   }
 });
+
+test('summarize reports when everyone has partnered with everyone', () => {
+  const E2 = require('../js/engine.js');
+  const S = E2.newSession({ courts: 1, labels: ['1'] }, ['A', 'B', 'C', 'D']);
+  const mk = (a, b) => ({ id: 'x' + a + b, c: 1, a, b, started: true, done: true, winner: 'a', doneAt: S.matches.length + 1 });
+  S.matches.push(mk(['A', 'B'], ['C', 'D']));
+  assert.equal(E2.summarize(S).allPaired, false);
+  assert.equal(E2.summarize(S).pairMet, 2);
+  S.matches.push(mk(['A', 'C'], ['B', 'D']));
+  S.matches.push(mk(['A', 'D'], ['B', 'C']));
+  const sm = E2.summarize(S);
+  assert.equal(sm.allPaired, true);
+  assert.equal(sm.pairTotal, 6);
+});
