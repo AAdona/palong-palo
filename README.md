@@ -14,6 +14,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates are avoided first, then repeat opponents. A fresh partner can win over a one-game gap, so games stay close to even but not forced equal.
 - **Teammate history:** under each court, a chip per team says **New pair** or **Played together 2 times** (amber), counting earlier games that finished or started.
 - **Everyone met:** under On court, a bar shows how many teammate pairs have played together, like 6 of 45. When every pair has teamed up, it turns into a green banner (and says so if everyone has faced everyone too). Repeat partners are unavoidable after that.
+- **Who they teamed up with:** in Players, tap a name to see their teammates so far (with how many times) and who they have not partnered yet.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
 - **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
 - **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.

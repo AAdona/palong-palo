@@ -2076,3 +2076,48 @@ html.theme-fade *::after {
   height: 16px;
   margin-top: 2px;
 }
+
+/* Player detail: who they teamed up with */
+.namelink {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 44px;
+  cursor: pointer;
+}
+.dchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dchip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  font-size: var(--text-sm);
+}
+.dchip small {
+  color: var(--color-ink-muted);
+  font-weight: 600;
+}
+.dchip.met {
+  background: var(--color-sage);
+  border-color: transparent;
+}
+.dchip.not {
+  color: var(--color-ink-muted);
+}

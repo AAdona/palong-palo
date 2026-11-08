@@ -735,6 +735,42 @@ function changeSheet(sh) {
   return sheetShell(sh.name, 'Court ' + courtLabel(S, m.c) + ', ' + pl(sh.name) + ' played', body);
 }
 
+function playerDetailSheet(sh) {
+  const S = App.S,
+    me = sh.name;
+  const together = {},
+    against = {};
+  finished(S).forEach((m) => {
+    const mine = m.a.includes(me) ? m.a : m.b.includes(me) ? m.b : null;
+    if (!mine) return;
+    const other = mine === m.a ? m.b : m.a;
+    mine.filter((x) => x !== me).forEach((x) => (together[x] = (together[x] || 0) + 1));
+    other.forEach((x) => (against[x] = (against[x] || 0) + 1));
+  });
+  const names = allNames(S).filter((x) => x !== me && S.active.includes(x));
+  const met = names.filter((x) => together[x]).sort((a, b) => together[b] - together[a] || a.localeCompare(b)),
+    not = names.filter((x) => !together[x]).sort((a, b) => a.localeCompare(b));
+  const chip = (x, sub, cls) =>
+    '<span class="dchip ' + cls + '"><b>' + esc(x) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>';
+  const metHtml = met.length
+    ? met.map((x) => chip(x, together[x] + '×', 'met')).join('')
+    : '<p class="note">Nobody yet.</p>';
+  const notHtml = not.length
+    ? not.map((x) => chip(x, '', 'not')).join('')
+    : '<p class="note">Teamed up with everyone.</p>';
+  const faced = names.filter((x) => against[x]).length;
+  return sheetShell(
+    me,
+    met.length + ' of ' + names.length + ' teammates met, faced ' + faced + ' of ' + names.length,
+    '<div class="group"><h3>Teamed up with</h3><div class="dchips">' +
+      metHtml +
+      '</div></div><div class="group"><h3>Not yet teammates</h3><div class="dchips">' +
+      notHtml +
+      '</div></div><p class="note">Counts finished games. Only players who are in today are listed.</p>' +
+      '<button class="btn quiet" data-act="players">Back to players</button>',
+  );
+}
+
 function fixSheet(sh) {
   const S = App.S,
     m = findMatch(S, sh.id);
@@ -880,9 +916,13 @@ function playersSheet() {
       return (
         '<div class="prow' +
         (on ? '' : ' off') +
-        '"><span class="nm">' +
+        '"><span class="nm"><button class="namelink" data-act="player-detail" data-name="' +
         esc(n) +
-        '</span><span class="num">' +
+        '" aria-label="' +
+        esc(n) +
+        ': who they teamed up with">' +
+        esc(n) +
+        '</button></span><span class="num">' +
         p.played +
         '</span><span class="num">' +
         p.w +
@@ -1113,6 +1153,7 @@ function sheetHTML() {
   if (!sh) return '';
   if (sh.type === 'change') return changeSheet(sh);
   if (sh.type === 'result') return resultSheet(sh);
+  if (sh.type === 'pdetail') return playerDetailSheet(sh);
   if (sh.type === 'fix') return fixSheet(sh);
   if (sh.type === 'players') return playersSheet();
   if (sh.type === 'full') return fullSheet();
@@ -1610,6 +1651,9 @@ function onAction(act, el) {
       else openSheet({ type: 'change', name: d.name, mode: 'rest' }, el);
       break;
     }
+    case 'player-detail':
+      openSheet({ type: 'pdetail', name: d.name }, el);
+      break;
     case 'fix-open':
       openSheet({ type: 'fix', id: sh.id, name: d.name }, el);
       break;
