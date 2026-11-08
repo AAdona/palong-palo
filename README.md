@@ -11,7 +11,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Live matches, no future rounds:** only the matches on court are shown. When a court finishes, only that court gets a new match, made from players who are not on any court right now. The other court keeps playing untouched.
 - **Shuttlecock:** while a game is playing, a shuttlecock flies back and forth over its court. Each flight lands on a random spot on the far side, with a small shadow on the floor. It sits still if the phone is set to reduce motion.
 - **Played list:** finished games show under **Played**, newest first. Tap one to change its winner.
-- **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates and opponents are avoided, opponents first.
+- **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates are avoided first, then repeat opponents. A fresh partner can win over a one-game gap, so games stay close to even but not forced equal.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
 - **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
 - **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.
@@ -44,7 +44,7 @@ A match is made for a court only when the court is free, using only players who 
 
 1. Players are ranked: fewer games played comes first, then the longest rest.
 2. The few most deserving players are tried in every combination of four.
-3. Each combination is split into two teams every possible way and scored. Repeat partners and repeat opponents cost more, and opponents cost more than partners. The lowest cost wins.
+3. Each combination is split into two teams every possible way and scored. Repeat partners and repeat opponents cost more, and partners cost more than opponents. The lowest cost wins.
 
 Because courts finish at different times, games stay close to even but are not forced equal. With 12 players on 2 courts, expect near full opponent coverage and most partners met over a few hours.
 

@@ -10,13 +10,15 @@
    `c` is the court slot (1 or 2). The number painted on the court is courts[c - 1].label.
    A match is "up next" until it is started, then "playing now", then done. */
 
-/* How much a repeat costs. `balanced` spreads opponents first. `random` ignores who has played
+/* How much a repeat costs. `balanced` spreads teammates first, then opponents. `random` ignores who has played
    with or against whom. `partners` spreads teammates first. */
 const WEIGHTS = {
-  balanced: { p: 5, o: 6 },
+  balanced: { p: 20, o: 2 },
   random: { p: 0, o: 0 },
   partners: { p: 20, o: 1 },
 };
+/* Cost of one extra game. Kept below a repeated partner so a fresh pairing can win over a one-game gap. */
+const GAME_COST = 60;
 const weightsFor = (mode) => WEIGHTS[mode] || WEIGHTS.balanced;
 const pk = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 let _uid = 0;
@@ -146,7 +148,7 @@ function ranking(S, pool, st, nextN, rnd) {
   return pool
     .map((p) => {
       const rested = st.last[p] === undefined ? 4 : Math.min((nextN - 1 - st.last[p]) / open, 4);
-      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * 100 - rested * 8 + rnd() * 12 };
+      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * GAME_COST - rested * 8 + rnd() * 12 };
     })
     .sort((x, y) => x.k - y.k);
 }
