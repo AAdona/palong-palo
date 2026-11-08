@@ -10,13 +10,17 @@
    `c` is the court slot (1 or 2). The number painted on the court is courts[c - 1].label.
    A match is "up next" until it is started, then "playing now", then done. */
 
-/* How much a repeat costs. `balanced` spreads opponents first. `random` ignores who has played
+/* How much a repeat costs. `balanced` spreads teammates first, then opponents. `random` ignores who has played
    with or against whom. `partners` spreads teammates first. */
 const WEIGHTS = {
-  balanced: { p: 5, o: 6 },
-  random: { p: 0, o: 0 },
-  partners: { p: 20, o: 1 },
+  balanced: { p: 20, o: 2, g: 60 },
+  random: { p: 0, o: 0, g: 60 },
+  /* Fresh partners comes before fairness: games played barely counts, and every free
+     player is a candidate, so someone with more games can play to make a fresh pair. */
+  partners: { p: 20, o: 1, g: 4, all: true },
 };
+/* Cost of one extra game. Kept below a repeated partner so a fresh pairing can win over a one-game gap. */
+const GAME_COST = 60;
 const weightsFor = (mode) => WEIGHTS[mode] || WEIGHTS.balanced;
 const pk = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
 let _uid = 0;
@@ -141,12 +145,13 @@ function bestPlan(players, st, rnd, W) {
 }
 
 /* Lower is more deserving of a game: fewer games played first, then the longest rest. */
-function ranking(S, pool, st, nextN, rnd) {
+function ranking(S, pool, st, nextN, rnd, W) {
+  const g = (W && W.g) || GAME_COST;
   const open = Math.max(1, S.courts.filter((c) => c.open).length);
   return pool
     .map((p) => {
       const rested = st.last[p] === undefined ? 4 : Math.min((nextN - 1 - st.last[p]) / open, 4);
-      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * 100 - rested * 8 + rnd() * 12 };
+      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * g - rested * 8 + rnd() * 12 };
     })
     .sort((x, y) => x.k - y.k);
 }
@@ -154,7 +159,7 @@ function ranking(S, pool, st, nextN, rnd) {
 /* One match from the free players. The few most deserving players are tried in every
    combination, so fairness comes first and repeat partners or opponents break the ties. */
 function pickOne(S, pool, st, nextN, rnd, W) {
-  const top = ranking(S, pool, st, nextN, rnd).slice(0, 7);
+  const top = ranking(S, pool, st, nextN, rnd, W).slice(0, W && W.all ? pool.length : 7);
   let best = null,
     bs = Infinity;
   for (let i = 0; i < top.length; i++)
@@ -179,7 +184,18 @@ function pickOne(S, pool, st, nextN, rnd, W) {
 
 /* Several matches at once, used when more than one court is empty. */
 function pickMany(S, pool, st, nextN, rnd, W, count) {
-  const chosen = ranking(S, pool, st, nextN, rnd)
+  if (W && W.all) {
+    /* One court at a time, each choosing from everyone still free. */
+    const left = pool.slice(),
+      out = [];
+    for (let i = 0; i < count; i++) {
+      const m = pickOne(S, left, st, nextN, rnd, W)[0];
+      out.push(m);
+      [...m.a, ...m.b].forEach((x) => left.splice(left.indexOf(x), 1));
+    }
+    return out;
+  }
+  const chosen = ranking(S, pool, st, nextN, rnd, W)
     .slice(0, count * 4)
     .map((x) => x.p);
   return bestPlan(chosen, st, rnd, W).matches;
@@ -267,6 +283,10 @@ function summarize(S) {
     n: act.length,
     oppPct: pairs ? Math.round((faced / pairs) * 100) : 0,
     partnerPct: pairs ? Math.round((met / pairs) * 100) : 0,
+    pairTotal: (act.length * (act.length - 1)) / 2,
+    pairMet: met / 2,
+    allPaired: act.length > 1 && met === pairs,
+    allFaced: act.length > 1 && faced === pairs,
     avgFaced: act.length ? Math.round((faced / act.length) * 10) / 10 : 0,
   };
 }
@@ -275,6 +295,7 @@ function summarize(S) {
 /* Gives every open court without a match its next one. Uses only free players, so nobody is
    ever in two matches. Returns the matches that were made. */
 function fill(S, mode) {
+  if (S.finished) return [];
   const slots = [];
   S.courts.forEach((c, i) => {
     if (c.open && !pendingOn(S, i + 1)) slots.push(i + 1);
@@ -282,7 +303,7 @@ function fill(S, mode) {
   const pool = freePlayers(S);
   const count = Math.min(slots.length, Math.floor(pool.length / 4));
   if (!count) return [];
-  const W = weightsFor(mode),
+  const W = weightsFor(mode || S.mode),
     st = statsOf(S),
     rnd = rngFrom((Math.random() * 4294967296) >>> 0),
     nextN = S.seq + 1;
@@ -328,8 +349,112 @@ const removeMatch = (S, m) => {
 /* The shuffle button. Matches that are only up next are thrown away and made again.
    Finished and started matches are left alone. mode: 'random' or 'partners'. */
 function reroll(S, mode) {
+  /* Fresh partners stays on for the matches made later, until Total shuffle is used. */
+  S.mode = mode === 'partners' ? 'partners' : null;
   S.matches = S.matches.filter((m) => m.done || m.started);
   return fill(S, mode);
+}
+
+/* ---------- finishing ---------- */
+/* Ends the session. Matches that are only up next are dropped, games on court stay so their
+   winners can still be picked. No new matches are made until the session is resumed. */
+function finishSession(S) {
+  S.matches = S.matches.filter((m) => m.done || m.started);
+  S.finished = Date.now();
+}
+function resumeSession(S) {
+  S.finished = null;
+  return fill(S);
+}
+
+/* Everything the wrap-up screen shows. Only finished games with a winner count. */
+function wrapUp(S) {
+  const games = finished(S).filter((m) => m.winner === 'a' || m.winner === 'b');
+  const per = {};
+  const get = (n) =>
+    per[n] || (per[n] = { name: n, g: 0, w: 0, l: 0, mates: new Set(), run: 0, best: 0 });
+  const duo = {},
+    rival = {};
+  games.forEach((m) => {
+    const sides = { a: m.a, b: m.b };
+    ['a', 'b'].forEach((sd) => {
+      const mine = sides[sd],
+        won = m.winner === sd;
+      const k = pk(mine[0], mine[1]);
+      const d = duo[k] || (duo[k] = { names: mine.slice(), g: 0, w: 0 });
+      d.g++;
+      if (won) d.w++;
+      mine.forEach((n) => {
+        const p = get(n);
+        p.g++;
+        if (won) {
+          p.w++;
+          p.run++;
+          p.best = Math.max(p.best, p.run);
+        } else {
+          p.l++;
+          p.run = 0;
+        }
+        mine.forEach((o) => o !== n && p.mates.add(o));
+      });
+    });
+    m.a.forEach((x) =>
+      m.b.forEach((y) => {
+        const k = pk(x, y);
+        const r = rival[k] || (rival[k] = { names: [x, y], g: 0 });
+        r.g++;
+      }),
+    );
+  });
+  const rows = Object.values(per).sort(
+    (x, y) => y.w - x.w || x.l - y.l || y.g - x.g || x.name.localeCompare(y.name),
+  );
+  let place = 0,
+    prev = null;
+  rows.forEach((r, i) => {
+    const key = r.w + '-' + r.l;
+    if (key !== prev) {
+      place = i + 1;
+      prev = key;
+    }
+    r.place = place;
+    r.pct = r.g ? Math.round((r.w / r.g) * 100) : 0;
+  });
+  /* Names holding the top value of a stat, or null when the top value is under the minimum. */
+  const top = (list, val, min) => {
+    const best = Math.max(0, ...list.map(val));
+    if (best < min) return null;
+    return { value: best, who: list.filter((x) => val(x) === best) };
+  };
+  const duos = Object.values(duo).filter((d) => d.g >= 2 && d.w >= 1);
+  const bestDuoWins = duos.length ? Math.max(...duos.map((d) => d.w)) : 0;
+  const duoPool = duos.filter((d) => d.w === bestDuoWins);
+  duoPool.sort((x, y) => y.w / y.g - x.w / x.g || y.g - x.g);
+  const rivals = Object.values(rival).filter((r) => r.g >= 2);
+  const topRival = rivals.length ? rivals.slice().sort((x, y) => y.g - x.g)[0] : null;
+  const sm = summarize(S);
+  let minutes = null;
+  const starts = games.map((m) => m.startedAt).filter(Boolean),
+    ends = games.map((m) => m.doneAt).filter(Boolean);
+  if (starts.length && ends.length) minutes = Math.max(1, Math.round((Math.max(...ends) - Math.min(...starts)) / 60000));
+  return {
+    games: games.length,
+    players: rows.length,
+    minutes,
+    rows,
+    podium: rows.slice(0, 3),
+    tiedAtTop: rows.filter((r) => r.place === 1).length,
+    awards: {
+      duo: duoPool[0] || null,
+      streak: top(rows, (r) => r.best, 2),
+      workhorse: top(rows, (r) => r.g, 1),
+      butterfly: top(rows, (r) => r.mates.size, 1),
+      rivalry: topRival,
+    },
+    pairMet: sm.pairMet,
+    pairTotal: sm.pairTotal,
+    oppPct: sm.oppPct,
+  };
 }
 
 /* ---------- results ---------- */
@@ -508,6 +633,9 @@ if (typeof module !== 'undefined')
     newSessionId,
     fill,
     reroll,
+    finishSession,
+    resumeSession,
+    wrapUp,
     startMatch,
     setResult,
     reopen,

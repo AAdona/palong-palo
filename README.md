@@ -11,7 +11,11 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Live matches, no future rounds:** only the matches on court are shown. When a court finishes, only that court gets a new match, made from players who are not on any court right now. The other court keeps playing untouched.
 - **Shuttlecock:** while a game is playing, a shuttlecock flies back and forth over its court. Each flight lands on a random spot on the far side, with a small shadow on the floor. It sits still if the phone is set to reduce motion.
 - **Played list:** finished games show under **Played**, newest first. Tap one to change its winner.
-- **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates and opponents are avoided, opponents first.
+- **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates are avoided first, then repeat opponents. A fresh partner can win over a one-game gap, so games stay close to even but not forced equal.
+- **Teammate history:** under each court, a chip per team says **New pair** or **Played together 2 times** (amber), counting earlier games that finished or started.
+- **Everyone met:** under On court, a bar shows how many teammate pairs have played together, like 6 of 45. When every pair has teamed up, it turns into a green banner (and says so if everyone has faced everyone too). Repeat partners are unavoidable after that.
+- **Who they teamed up with:** in Players, tap a name to see their teammates so far (with how many times) and who they have not partnered yet.
+- **Finish session:** tap **Finish session and see the podium** under Played, or use the ⋯ menu. You get a wrap-up with a podium (crown for first place, confetti), session totals, awards (best duo, hot streak, never sat still, social butterfly, biggest rivalry), the full standings, and a button to copy a short recap. Matches up next are dropped. Games still on court stay so you can pick their winners. **Back to games** resumes the session.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
 - **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
 - **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.
@@ -28,7 +32,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** removing a player or starting a new session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
-- **Two shuffles:** the shuffle button remakes the matches that are only up next, and asks which kind. **Total shuffle** gives random teams and opponents. **Fresh partners** pairs people who have been teammates the fewest times, then spreads opponents. Players with fewer games still come first, and started or finished games are left alone.
+- **Two shuffles:** the shuffle button remakes the matches that are only up next, and asks which kind. **Total shuffle** gives random teams and opponents. **Fresh partners** puts new teammates first and barely looks at games played, so someone with more games can play to make a fresh pair. It stays on for the matches made after it (the bar under On court says "Fresh partners on") until you use Total shuffle. Started or finished games are left alone.
 
 ## Using it
 
@@ -44,7 +48,7 @@ A match is made for a court only when the court is free, using only players who 
 
 1. Players are ranked: fewer games played comes first, then the longest rest.
 2. The few most deserving players are tried in every combination of four.
-3. Each combination is split into two teams every possible way and scored. Repeat partners and repeat opponents cost more, and opponents cost more than partners. The lowest cost wins.
+3. Each combination is split into two teams every possible way and scored. Repeat partners and repeat opponents cost more, and partners cost more than opponents. The lowest cost wins.
 
 Because courts finish at different times, games stay close to even but are not forced equal. With 12 players on 2 courts, expect near full opponent coverage and most partners met over a few hours.
 
