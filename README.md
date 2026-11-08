@@ -15,6 +15,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Teammate history:** under each court, a chip per team says **New pair** or **Played together 2 times** (amber), counting earlier games that finished or started.
 - **Everyone met:** under On court, a bar shows how many teammate pairs have played together, like 6 of 45. When every pair has teamed up, it turns into a green banner (and says so if everyone has faced everyone too). Repeat partners are unavoidable after that.
 - **Who they teamed up with:** in Players, tap a name to see their teammates so far (with how many times) and who they have not partnered yet.
+- **Finish session:** tap **Finish session and see the podium** under Played, or use the ⋯ menu. You get a wrap-up with a podium (crown for first place, confetti), session totals, awards (best duo, hot streak, never sat still, social butterfly, biggest rivalry), the full standings, and a button to copy a short recap. Matches up next are dropped. Games still on court stay so you can pick their winners. **Back to games** resumes the session.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
 - **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
 - **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.

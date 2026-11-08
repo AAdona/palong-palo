@@ -475,3 +475,38 @@ test('fresh partners mode ignores games played and stays on for later matches', 
   E2.reroll(S2, 'random');
   assert.equal(S2.mode, null);
 });
+
+test('wrapUp ranks players and finds the awards', () => {
+  const E2 = require('../js/engine.js');
+  const S = E2.newSession({ courts: 1, labels: ['1'] }, ['A', 'B', 'C', 'D', 'E', 'F']);
+  S.matches = [];
+  let n = 0;
+  const add = (a, b, w) =>
+    S.matches.push({ id: 'g' + n, n: ++n, c: 1, a, b, started: true, done: true, winner: w, doneAt: n, startedAt: 60000 * n });
+  add(['A', 'B'], ['C', 'D'], 'a');
+  add(['A', 'B'], ['E', 'F'], 'a');
+  add(['A', 'C'], ['B', 'D'], 'a');
+  add(['A', 'B'], ['C', 'D'], 'b');
+  const w = E2.wrapUp(S);
+  assert.equal(w.games, 4);
+  assert.equal(w.rows[0].name, 'A');
+  assert.equal(w.rows[0].w, 3);
+  assert.equal(w.podium.length, 3);
+  assert.deepEqual(w.awards.duo.names.slice().sort(), ['A', 'B']);
+  assert.equal(w.awards.streak.value, 3);
+  assert.equal(w.awards.rivalry.g >= 2, true);
+  assert.ok(w.minutes >= 1);
+});
+
+test('finishing drops matches up next, keeps games on court, and stops new matches', () => {
+  const E2 = require('../js/engine.js');
+  const S = E2.newSession({ courts: 2, labels: ['1', '2'] }, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']);
+  E2.startMatch(S, S.matches[0].id);
+  E2.finishSession(S);
+  assert.equal(S.matches.length, 1);
+  assert.ok(S.finished);
+  assert.deepEqual(E2.fill(S), []);
+  E2.resumeSession(S);
+  assert.equal(S.finished, null);
+  assert.equal(S.matches.length, 2);
+});

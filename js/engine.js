@@ -295,6 +295,7 @@ function summarize(S) {
 /* Gives every open court without a match its next one. Uses only free players, so nobody is
    ever in two matches. Returns the matches that were made. */
 function fill(S, mode) {
+  if (S.finished) return [];
   const slots = [];
   S.courts.forEach((c, i) => {
     if (c.open && !pendingOn(S, i + 1)) slots.push(i + 1);
@@ -352,6 +353,108 @@ function reroll(S, mode) {
   S.mode = mode === 'partners' ? 'partners' : null;
   S.matches = S.matches.filter((m) => m.done || m.started);
   return fill(S, mode);
+}
+
+/* ---------- finishing ---------- */
+/* Ends the session. Matches that are only up next are dropped, games on court stay so their
+   winners can still be picked. No new matches are made until the session is resumed. */
+function finishSession(S) {
+  S.matches = S.matches.filter((m) => m.done || m.started);
+  S.finished = Date.now();
+}
+function resumeSession(S) {
+  S.finished = null;
+  return fill(S);
+}
+
+/* Everything the wrap-up screen shows. Only finished games with a winner count. */
+function wrapUp(S) {
+  const games = finished(S).filter((m) => m.winner === 'a' || m.winner === 'b');
+  const per = {};
+  const get = (n) =>
+    per[n] || (per[n] = { name: n, g: 0, w: 0, l: 0, mates: new Set(), run: 0, best: 0 });
+  const duo = {},
+    rival = {};
+  games.forEach((m) => {
+    const sides = { a: m.a, b: m.b };
+    ['a', 'b'].forEach((sd) => {
+      const mine = sides[sd],
+        won = m.winner === sd;
+      const k = pk(mine[0], mine[1]);
+      const d = duo[k] || (duo[k] = { names: mine.slice(), g: 0, w: 0 });
+      d.g++;
+      if (won) d.w++;
+      mine.forEach((n) => {
+        const p = get(n);
+        p.g++;
+        if (won) {
+          p.w++;
+          p.run++;
+          p.best = Math.max(p.best, p.run);
+        } else {
+          p.l++;
+          p.run = 0;
+        }
+        mine.forEach((o) => o !== n && p.mates.add(o));
+      });
+    });
+    m.a.forEach((x) =>
+      m.b.forEach((y) => {
+        const k = pk(x, y);
+        const r = rival[k] || (rival[k] = { names: [x, y], g: 0 });
+        r.g++;
+      }),
+    );
+  });
+  const rows = Object.values(per).sort(
+    (x, y) => y.w - x.w || x.l - y.l || y.g - x.g || x.name.localeCompare(y.name),
+  );
+  let place = 0,
+    prev = null;
+  rows.forEach((r, i) => {
+    const key = r.w + '-' + r.l;
+    if (key !== prev) {
+      place = i + 1;
+      prev = key;
+    }
+    r.place = place;
+    r.pct = r.g ? Math.round((r.w / r.g) * 100) : 0;
+  });
+  /* Names holding the top value of a stat, or null when the top value is under the minimum. */
+  const top = (list, val, min) => {
+    const best = Math.max(0, ...list.map(val));
+    if (best < min) return null;
+    return { value: best, who: list.filter((x) => val(x) === best) };
+  };
+  const duos = Object.values(duo).filter((d) => d.g >= 2 && d.w >= 1);
+  const bestDuoWins = duos.length ? Math.max(...duos.map((d) => d.w)) : 0;
+  const duoPool = duos.filter((d) => d.w === bestDuoWins);
+  duoPool.sort((x, y) => y.w / y.g - x.w / x.g || y.g - x.g);
+  const rivals = Object.values(rival).filter((r) => r.g >= 2);
+  const topRival = rivals.length ? rivals.slice().sort((x, y) => y.g - x.g)[0] : null;
+  const sm = summarize(S);
+  let minutes = null;
+  const starts = games.map((m) => m.startedAt).filter(Boolean),
+    ends = games.map((m) => m.doneAt).filter(Boolean);
+  if (starts.length && ends.length) minutes = Math.max(1, Math.round((Math.max(...ends) - Math.min(...starts)) / 60000));
+  return {
+    games: games.length,
+    players: rows.length,
+    minutes,
+    rows,
+    podium: rows.slice(0, 3),
+    tiedAtTop: rows.filter((r) => r.place === 1).length,
+    awards: {
+      duo: duoPool[0] || null,
+      streak: top(rows, (r) => r.best, 2),
+      workhorse: top(rows, (r) => r.g, 1),
+      butterfly: top(rows, (r) => r.mates.size, 1),
+      rivalry: topRival,
+    },
+    pairMet: sm.pairMet,
+    pairTotal: sm.pairTotal,
+    oppPct: sm.oppPct,
+  };
 }
 
 /* ---------- results ---------- */
@@ -530,6 +633,9 @@ if (typeof module !== 'undefined')
     newSessionId,
     fill,
     reroll,
+    finishSession,
+    resumeSession,
+    wrapUp,
     startMatch,
     setResult,
     reopen,

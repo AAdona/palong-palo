@@ -47,6 +47,8 @@ const I = {
   people:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="7.5" cy="7" r="3"/><path d="M2 16c.6-3 2.7-4.5 5.5-4.5S12.400 13 13 16"/><path d="M13 4.200a3 3 0 010 5.600M15 11.800c1.800.5 2.800 1.800 3 4.200"/></svg>',
   list: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 5h9M7 10h9M7 15h9"/><circle cx="3.500" cy="5" r="0.900" fill="currentColor"/><circle cx="3.500" cy="10" r="0.900" fill="currentColor"/><circle cx="3.500" cy="15" r="0.900" fill="currentColor"/></svg>',
+  crown:
+    '<svg viewBox="0 0 28 22" aria-hidden="true"><path d="M3 19 1.500 6.500l6.500 5L14 2l6 9.500 6.500-5L25 19z" fill="currentColor" stroke="rgba(41,43,41,.35)" stroke-width="1.200" stroke-linejoin="round"/><circle cx="14" cy="2.800" r="1.600" fill="currentColor"/><circle cx="1.800" cy="6" r="1.400" fill="currentColor"/><circle cx="26.200" cy="6" r="1.400" fill="currentColor"/></svg>',
   plus: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>',
   shuffle:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h3c4 0 4 8 8 8h3M3 14h3c1.5 0 2.500-.8 3.300-1.900M11 7.100C11.800 6.400 12.800 6 14 6h3M15 3.500L17.500 6 15 8.500M15 11.500l2.500 2.500-2.500 2.500"/></svg>',
@@ -594,6 +596,7 @@ function scheduleHTML() {
     (done.length ? ', ' + done.length : '') +
     '</h3>' +
     (rows || '<p class="note">Finished games show up here. Tap one to change its winner.</p>') +
+    (done.length ? '<button class="btn quiet finbtn" data-act="ask-finish">Finish session and see the podium</button>' : '') +
     '</section>';
   return (
     '<div class="shell">' +
@@ -631,6 +634,124 @@ function scheduleHTML() {
     '<button class="btn" data-act="full">' +
     I.list +
     'Standings</button></div></footer></div>'
+  );
+}
+
+
+/* ---------- wrap-up ---------- */
+const nameList = (arr) => (arr.length > 2 ? arr.length + ' players' : arr.map(esc).join(' & '));
+function recapText(S, w) {
+  const lines = ['Palong Palo wrap-up', w.games + ' games, ' + w.players + ' players'];
+  w.podium.forEach((r) => lines.push('#' + r.place + ' ' + r.name + ' (' + r.w + '-' + r.l + ')'));
+  const a = w.awards;
+  if (a.duo) lines.push('Best duo: ' + a.duo.names.join(' + ') + ', ' + a.duo.w + ' of ' + a.duo.g + ' won');
+  if (a.streak) lines.push('Win streak: ' + a.streak.who.map((r) => r.name).join(' & ') + ', ' + a.streak.value + ' in a row');
+  if (a.workhorse) lines.push('Most games: ' + a.workhorse.who.map((r) => r.name).join(' & ') + ', ' + a.workhorse.value);
+  return lines.join('\n');
+}
+function confettiHTML() {
+  const cols = ['#d9a93f', '#8faf87', '#f1d0d5', '#b9d3e3', '#f2c9ad', '#35523b'];
+  let out = '';
+  for (let i = 0; i < 34; i++) {
+    out +=
+      '<i style="left:' +
+      Math.round(Math.random() * 100) +
+      '%;background:' +
+      cols[i % cols.length] +
+      ';animation-delay:' +
+      (Math.random() * 0.9).toFixed(2) +
+      's;animation-duration:' +
+      (2.4 + Math.random() * 1.6).toFixed(2) +
+      's;--x:' +
+      Math.round(Math.random() * 80 - 40) +
+      'px;--r:' +
+      Math.round(Math.random() * 720 - 360) +
+      'deg"></i>';
+  }
+  return '<div class="confetti" aria-hidden="true">' + out + '</div>';
+}
+
+function wrapHTML() {
+  const S = App.S,
+    w = wrapUp(S);
+  const burst = App.confetti;
+  App.confetti = false;
+  const live = S.matches.filter((m) => !m.done);
+  const dur = w.minutes == null ? '' : w.minutes >= 60 ? Math.floor(w.minutes / 60) + 'h ' + (w.minutes % 60) + 'm' : w.minutes + ' min';
+  /* Podium: second place on the left, first in the middle, third on the right. */
+  const order = [w.podium[1], w.podium[0], w.podium[2]].filter(Boolean);
+  const step = (r) =>
+    '<div class="step p' +
+    Math.min(r.place, 3) +
+    (r.place === 1 ? ' champ' : '') +
+    '">' +
+    (r.place === 1 ? '<span class="crown">' + I.crown + '</span>' : '') +
+    '<span class="who">' +
+    esc(r.name) +
+    '</span><span class="rec">' +
+    r.w +
+    '-' +
+    r.l +
+    '</span><span class="blk"><b>' +
+    r.place +
+    '</b></span></div>';
+  const podium = w.podium.length
+    ? '<div class="podium" aria-label="Podium">' + order.map(step).join('') + '</div>' +
+      (w.tiedAtTop > 1
+        ? '<p class="note center">' + w.tiedAtTop + ' players tied for first with the same record.</p>'
+        : '')
+    : '<p class="note center">No winners were logged, so there is no podium. Pick winners on the games and they show up here.</p>';
+  const a = w.awards,
+    cards = [];
+  const card = (tag, big, sub) =>
+    '<div class="award"><small>' + tag + '</small><b>' + big + '</b><span>' + sub + '</span></div>';
+  if (a.duo)
+    cards.push(card('Best duo', a.duo.names.map(esc).join(' + '), a.duo.w + ' wins in ' + a.duo.g + ' games together'));
+  if (a.streak)
+    cards.push(card('Hot streak', nameList(a.streak.who.map((r) => r.name)), a.streak.value + ' wins in a row'));
+  if (a.workhorse)
+    cards.push(card('Never sat still', nameList(a.workhorse.who.map((r) => r.name)), a.workhorse.value + (a.workhorse.value === 1 ? ' game' : ' games')));
+  if (a.butterfly)
+    cards.push(card('Social butterfly', nameList(a.butterfly.who.map((r) => r.name)), 'Teamed up with ' + a.butterfly.value + ' different players'));
+  if (a.rivalry)
+    cards.push(card('Biggest rivalry', a.rivalry.names.map(esc).join(' vs '), 'Faced each other ' + a.rivalry.g + ' times'));
+  const tiles =
+    '<div class="wtiles"><div class="tile"><span>Games</span><b>' + w.games + '</b></div>' +
+    '<div class="tile"><span>Players</span><b>' + w.players + '</b></div>' +
+    (dur ? '<div class="tile"><span>Time</span><b>' + dur + '</b></div>' : '') +
+    '<div class="tile"><span>Teammates met</span><b>' + w.pairMet + '/' + w.pairTotal + '</b></div></div>';
+  const all = w.rows
+    .map(
+      (r) =>
+        '<div class="rk rk4" role="row"><span class="num">' + r.place + '</span><span class="nm">' + esc(r.name) +
+        '</span><span class="num">' + r.w + '-' + r.l + '</span><span class="num">' + r.pct + '%</span></div>',
+    )
+    .join('');
+  const pending = live.length
+    ? '<div class="pend"><p class="note">' +
+      (live.length === 1 ? 'One game is still on court.' : live.length + ' games are still on court.') +
+      ' Pick the winner and it counts here.</p>' +
+      live
+        .map((m) => '<button class="btn sm" data-act="result" data-id="' + m.id + '">Court ' + esc(courtLabel(S, m.c)) + ': pick winner</button>')
+        .join('') +
+      '</div>'
+    : '';
+  return (
+    '<div class="shell wrap">' +
+    (burst ? confettiHTML() : '') +
+    '<header class="top sched"><div class="brand">' + I.brand + '<span>Palong Palo</span></div><div class="actions">' +
+    '<button class="btn quiet icon" data-act="menu" aria-label="More" title="More">' + I.menu + '</button></div></header>' +
+    '<main class="main live wrapmain">' +
+    '<div class="roundbar"><div class="roundrow"><h1 class="roundtitle">That’s a wrap<small>' +
+    w.games + (w.games === 1 ? ' game' : ' games') + ', ' + w.players + ' players</small></h1></div></div>' +
+    podium + pending + tiles +
+    (cards.length ? '<section class="awards" aria-label="Awards"><h3>Awards</h3>' + cards.join('') + '</section>' : '') +
+    (w.rows.length ? '<section class="allrank"><h3>Everyone</h3><div class="rank" role="table" aria-label="Final standings">' + all + '</div></section>' : '') +
+    '<button class="btn quiet" data-act="copy-recap">Copy recap to share</button>' +
+    '</main>' +
+    '<footer class="foot"><div class="footnav two">' +
+    '<button class="btn" data-act="resume-session">Back to games</button>' +
+    '<button class="btn primary" data-act="ask-new">New session</button></div></footer></div>'
   );
 }
 
@@ -1002,6 +1123,9 @@ function menuSheet() {
     '<div class="menu"><button class="btn" data-act="open-courts">Court numbers</button>' +
     '<button class="btn" data-act="open-history">Saved results and backup</button>' +
     '<button class="btn" data-act="setup">Back to setup</button>' +
+    (S.finished
+      ? '<button class="btn" data-act="resume-session">Back to games</button>'
+      : '<button class="btn" data-act="ask-finish">Finish session</button>') +
     '<button class="btn danger" data-act="ask-new">Start a new session</button></div>' +
     '<p class="note">Opponent coverage is ' +
     sm.oppPct +
@@ -1171,7 +1295,7 @@ function sheetHTML() {
 function render() {
   const hadSheet = !!$app.querySelector('.sheet');
   $app.innerHTML =
-    BG_COURT + (App.view === 'setup' || !App.S ? setupHTML() : scheduleHTML()) + sheetHTML() + confirmHTML();
+    BG_COURT + (App.view === 'setup' || !App.S ? setupHTML() : App.S.finished ? wrapHTML() : scheduleHTML()) + sheetHTML() + confirmHTML();
   if (App.anim) {
     const main = $app.querySelector('.main');
     if (main) {
@@ -1763,6 +1887,45 @@ function onAction(act, el) {
     case 'court-open': {
       const c = +d.c;
       mutate(() => setCourtOpen(S, c, true), 'Court ' + courtLabel(S, c) + ' is open.');
+      break;
+    }
+    case 'ask-finish':
+      askConfirm({
+        title: 'Finish the session?',
+        body: 'Matches up next are dropped. Games still on court stay so you can pick their winners. You can go back to the games any time.',
+        label: 'Finish session',
+        act: 'finish-session',
+        run: () => {
+          App.undo = JSON.stringify(App.S);
+          finishSession(App.S);
+          App.confetti = true;
+          App.sheet = null;
+          App.anim = 'in';
+          hideToast(true);
+          Sound.ok();
+          save();
+          render();
+          window.scrollTo(0, 0);
+        },
+      });
+      break;
+    case 'resume-session':
+      App.undo = JSON.stringify(App.S);
+      resumeSession(App.S);
+      App.sheet = null;
+      App.anim = 'in';
+      save();
+      render();
+      showToast('Back to the games.', true);
+      break;
+    case 'copy-recap': {
+      const text = recapText(App.S, wrapUp(App.S));
+      const done = () => showToast('Recap copied.', false);
+      try {
+        navigator.clipboard.writeText(text).then(done, () => showToast('Could not copy here.', false));
+      } catch (e) {
+        showToast('Could not copy here.', false);
+      }
       break;
     }
     case 'ask-new':
