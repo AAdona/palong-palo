@@ -1994,3 +1994,42 @@ html.theme-fade *::after {
   opacity: 0.22;
   transform: translate(-50%, -50%);
 }
+
+/* Has this pair played together before? */
+.pairs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 2px 0 0;
+}
+.pairchip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pairchip i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--team-a-line);
+}
+.pairchip.t-b i {
+  background: var(--team-b-line);
+}
+.pairchip.again {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+  background: transparent;
+}

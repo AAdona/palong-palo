@@ -359,6 +359,28 @@ function matchText(m) {
   return m.a.join(' + ') + ' vs ' + m.b.join(' + ');
 }
 
+/* How many earlier games (finished or started) these two have played as teammates. */
+function pairCount(S, m, x, y) {
+  return S.matches.filter(
+    (o) =>
+      o !== m &&
+      (o.done || o.started) &&
+      ((o.a.includes(x) && o.a.includes(y)) || (o.b.includes(x) && o.b.includes(y))),
+  ).length;
+}
+function pairChip(S, m, side) {
+  const t = side === 'a' ? m.a : m.b,
+    n = pairCount(S, m, t[0], t[1]);
+  return (
+    '<span class="pairchip t-' +
+    side +
+    (n ? ' again' : '') +
+    '"><i></i>' +
+    (n ? 'Played together ' + n + (n === 1 ? ' time' : ' times') : 'New pair') +
+    '</span>'
+  );
+}
+
 /* A court with a match: up next until Start game is pressed, then playing now. */
 function matchCard(S, m) {
   const slot = m.c,
@@ -439,7 +461,10 @@ function matchCard(S, m) {
     pill(m.a[1], 'a', 1) +
     pill(m.b[0], 'b', 0) +
     pill(m.b[1], 'b', 1) +
-    '</div></div></article>'
+    '</div></div><div class="pairs" aria-label="Teammate history">' +
+    pairChip(S, m, 'a') +
+    pairChip(S, m, 'b') +
+    '</div></article>'
   );
 }
 

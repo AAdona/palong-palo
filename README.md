@@ -12,6 +12,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Shuttlecock:** while a game is playing, a shuttlecock flies back and forth over its court. Each flight lands on a random spot on the far side, with a small shadow on the floor. It sits still if the phone is set to reduce motion.
 - **Played list:** finished games show under **Played**, newest first. Tap one to change its winner.
 - **Fair match-ups:** the players with the fewest games and the longest rest come first. Among those, repeat teammates are avoided first, then repeat opponents. A fresh partner can win over a one-game gap, so games stay close to even but not forced equal.
+- **Teammate history:** under each court, a chip per team says **New pair** or **Played together 2 times** (amber), counting earlier games that finished or started.
 - **Waiting courts:** if fewer than 4 players are free, the court shows "Waiting" and gets its match as soon as enough players are free.
 - **Late arrivals:** add someone mid-session from Players. They are picked for the next match that gets made, but are not given extra games to catch up with the others.
 - **Edit a match up next:** tap a player to rest them, swap them with someone else, or take them out for the day. A game already started cannot be changed.
