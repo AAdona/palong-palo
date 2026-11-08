@@ -31,7 +31,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Sounds:** soft tap sounds and small buzzes, with an on/off switch. iPhones stay silent if the ring switch is off.
 - **Safe deletes:** removing a player or starting a new session asks first.
 - **Undo:** every change shows a loader, then a toast with Undo.
-- **Two shuffles:** the shuffle button remakes the matches that are only up next, and asks which kind. **Total shuffle** gives random teams and opponents. **Fresh partners** pairs people who have been teammates the fewest times, then spreads opponents. Players with fewer games still come first, and started or finished games are left alone.
+- **Two shuffles:** the shuffle button remakes the matches that are only up next, and asks which kind. **Total shuffle** gives random teams and opponents. **Fresh partners** puts new teammates first and barely looks at games played, so someone with more games can play to make a fresh pair. It stays on for the matches made after it (the bar under On court says "Fresh partners on") until you use Total shuffle. Started or finished games are left alone.
 
 ## Using it
 

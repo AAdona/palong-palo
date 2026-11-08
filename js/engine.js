@@ -13,9 +13,11 @@
 /* How much a repeat costs. `balanced` spreads teammates first, then opponents. `random` ignores who has played
    with or against whom. `partners` spreads teammates first. */
 const WEIGHTS = {
-  balanced: { p: 20, o: 2 },
-  random: { p: 0, o: 0 },
-  partners: { p: 20, o: 1 },
+  balanced: { p: 20, o: 2, g: 60 },
+  random: { p: 0, o: 0, g: 60 },
+  /* Fresh partners comes before fairness: games played barely counts, and every free
+     player is a candidate, so someone with more games can play to make a fresh pair. */
+  partners: { p: 20, o: 1, g: 4, all: true },
 };
 /* Cost of one extra game. Kept below a repeated partner so a fresh pairing can win over a one-game gap. */
 const GAME_COST = 60;
@@ -143,12 +145,13 @@ function bestPlan(players, st, rnd, W) {
 }
 
 /* Lower is more deserving of a game: fewer games played first, then the longest rest. */
-function ranking(S, pool, st, nextN, rnd) {
+function ranking(S, pool, st, nextN, rnd, W) {
+  const g = (W && W.g) || GAME_COST;
   const open = Math.max(1, S.courts.filter((c) => c.open).length);
   return pool
     .map((p) => {
       const rested = st.last[p] === undefined ? 4 : Math.min((nextN - 1 - st.last[p]) / open, 4);
-      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * GAME_COST - rested * 8 + rnd() * 12 };
+      return { p, k: ((st.played[p] || 0) + (S.baseline[p] || 0)) * g - rested * 8 + rnd() * 12 };
     })
     .sort((x, y) => x.k - y.k);
 }
@@ -156,7 +159,7 @@ function ranking(S, pool, st, nextN, rnd) {
 /* One match from the free players. The few most deserving players are tried in every
    combination, so fairness comes first and repeat partners or opponents break the ties. */
 function pickOne(S, pool, st, nextN, rnd, W) {
-  const top = ranking(S, pool, st, nextN, rnd).slice(0, 7);
+  const top = ranking(S, pool, st, nextN, rnd, W).slice(0, W && W.all ? pool.length : 7);
   let best = null,
     bs = Infinity;
   for (let i = 0; i < top.length; i++)
@@ -181,7 +184,18 @@ function pickOne(S, pool, st, nextN, rnd, W) {
 
 /* Several matches at once, used when more than one court is empty. */
 function pickMany(S, pool, st, nextN, rnd, W, count) {
-  const chosen = ranking(S, pool, st, nextN, rnd)
+  if (W && W.all) {
+    /* One court at a time, each choosing from everyone still free. */
+    const left = pool.slice(),
+      out = [];
+    for (let i = 0; i < count; i++) {
+      const m = pickOne(S, left, st, nextN, rnd, W)[0];
+      out.push(m);
+      [...m.a, ...m.b].forEach((x) => left.splice(left.indexOf(x), 1));
+    }
+    return out;
+  }
+  const chosen = ranking(S, pool, st, nextN, rnd, W)
     .slice(0, count * 4)
     .map((x) => x.p);
   return bestPlan(chosen, st, rnd, W).matches;
@@ -288,7 +302,7 @@ function fill(S, mode) {
   const pool = freePlayers(S);
   const count = Math.min(slots.length, Math.floor(pool.length / 4));
   if (!count) return [];
-  const W = weightsFor(mode),
+  const W = weightsFor(mode || S.mode),
     st = statsOf(S),
     rnd = rngFrom((Math.random() * 4294967296) >>> 0),
     nextN = S.seq + 1;
@@ -334,6 +348,8 @@ const removeMatch = (S, m) => {
 /* The shuffle button. Matches that are only up next are thrown away and made again.
    Finished and started matches are left alone. mode: 'random' or 'partners'. */
 function reroll(S, mode) {
+  /* Fresh partners stays on for the matches made later, until Total shuffle is used. */
+  S.mode = mode === 'partners' ? 'partners' : null;
   S.matches = S.matches.filter((m) => m.done || m.started);
   return fill(S, mode);
 }

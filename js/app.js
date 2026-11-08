@@ -394,7 +394,9 @@ function pairProgress(sm) {
     );
   const pct = Math.round((sm.pairMet / sm.pairTotal) * 100);
   return (
-    '<div class="pairprog" aria-label="Teammates met"><span>Teammates met <b>' +
+    '<div class="pairprog" aria-label="Teammates met"><span>' +
+    (App.S && App.S.mode === 'partners' ? 'Fresh partners on. ' : '') +
+    'Teammates met <b>' +
     sm.pairMet +
     ' of ' +
     sm.pairTotal +
@@ -1142,7 +1144,7 @@ function shuffleSheet() {
       opt(
         'partners',
         'Fresh partners',
-        'Pairs people who have been teammates the fewest times, or never. Opponents come second.',
+        'New teammates come first. Games played barely counts, so some players may play a little less. Stays on for the matches made after this.',
       ) +
       '</div>',
   );
