@@ -17,7 +17,7 @@ const App = {
   view: 'setup',
   roster: DEFAULT_ROSTER.slice(),
   picked: new Set(DEFAULT_ROSTER),
-  cfg: { courts: 2, labels: ['1', '2'] },
+  cfg: { courts: 2, labels: ['1', '2', '3', '4', '5'] },
   S: null,
   history: [],
   sheet: null,
@@ -213,10 +213,12 @@ function load() {
     if (d.mig !== 1) App.roster = App.roster.filter((n) => n !== 'Angel');
     if (Array.isArray(d.picked)) App.picked = new Set(d.picked.filter((n) => App.roster.includes(n)));
     if (d.cfg && typeof d.cfg === 'object') {
-      if (d.cfg.courts === 1 || d.cfg.courts === 2) App.cfg.courts = d.cfg.courts;
-      if (Array.isArray(d.cfg.labels))
-        App.cfg.labels = [0, 1].map((i) => cleanLabel(d.cfg.labels[i]) || String(i + 1));
-      if (App.cfg.labels[0] === App.cfg.labels[1]) App.cfg.labels = ['1', '2'];
+      if (Number.isInteger(d.cfg.courts) && d.cfg.courts >= 1 && d.cfg.courts <= MAX_COURTS)
+        App.cfg.courts = d.cfg.courts;
+      if (Array.isArray(d.cfg.labels)) {
+        const got = [0, 1, 2, 3, 4].map((i) => cleanLabel(d.cfg.labels[i]) || String(i + 1));
+        if (new Set(got).size === got.length) App.cfg.labels = got;
+      }
     }
     /* A session saved before live courts is converted. Its finished games are kept. */
     const S = d.S ? fromLegacy(d.S) : null;
@@ -326,8 +328,8 @@ function setupHTML() {
     chips +
     '</div></div>' +
     '<div class="controls">' +
-    '<div class="field wide"><span class="lbl" id="l-courts">Courts</span><div class="seg" role="radiogroup" aria-labelledby="l-courts">' +
-    [1, 2]
+    '<div class="field wide"><span class="lbl" id="l-courts">Courts</span><div class="seg five" role="radiogroup" aria-labelledby="l-courts">' +
+    [1, 2, 3, 4, 5]
       .map(
         (c) =>
           '<button role="radio" aria-checked="' +
@@ -2026,8 +2028,8 @@ $app.addEventListener('change', (e) => {
   if (!m) return;
   const i = +m[1],
     next = cleanLabel(e.target.value),
-    other = App.cfg.courts > 1 ? App.cfg.labels[1 - i] : null;
-  if (next && next !== other) {
+    others = App.cfg.labels.slice(0, App.cfg.courts).filter((_, j) => j !== i);
+  if (next && !others.includes(next)) {
     App.cfg.labels[i] = next;
     e.target.value = next;
     save();

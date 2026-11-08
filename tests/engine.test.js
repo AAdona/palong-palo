@@ -510,3 +510,22 @@ test('finishing drops matches up next, keeps games on court, and stops new match
   assert.equal(S.finished, null);
   assert.equal(S.matches.length, 2);
 });
+
+test('up to five courts run at once without anyone double-booked', () => {
+  const E2 = require('../js/engine.js');
+  const names = Array.from({ length: 22 }, (_, i) => 'P' + i);
+  const S = E2.newSession({ courts: 5, labels: ['1', '2', '3', '4', '5'] }, names);
+  assert.equal(S.courts.length, 5);
+  assert.equal(S.matches.length, 5);
+  const all = S.matches.flatMap((m) => [...m.a, ...m.b]);
+  assert.equal(new Set(all).size, 20);
+  assert.equal(E2.newSession({ courts: 9, labels: [] }, names).courts.length, 5);
+  for (let i = 0; i < 25; i++) {
+    const m = S.matches.filter((x) => !x.done)[i % 5];
+    E2.startMatch(S, m.id);
+    E2.setResult(S, m.id, 'a');
+    E2.fill(S);
+    const busy = S.matches.filter((x) => !x.done).flatMap((x) => [...x.a, ...x.b]);
+    assert.equal(new Set(busy).size, busy.length);
+  }
+});

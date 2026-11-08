@@ -7,7 +7,7 @@
    { id, created, active: [names], left: [names marked out], baseline: {}, seq: 0,
      courts: [{ label: '5', open: true }],
      matches: [{ id, n, c, a: [x, y], b: [x, y], started, done, winner, startedAt, doneAt }] }
-   `c` is the court slot (1 or 2). The number painted on the court is courts[c - 1].label.
+   `c` is the court slot (1 to 5). The number painted on the court is courts[c - 1].label.
    A match is "up next" until it is started, then "playing now", then done. */
 
 /* How much a repeat costs. `balanced` spreads teammates first, then opponents. `random` ignores who has played
@@ -184,8 +184,8 @@ function pickOne(S, pool, st, nextN, rnd, W) {
 
 /* Several matches at once, used when more than one court is empty. */
 function pickMany(S, pool, st, nextN, rnd, W, count) {
-  if (W && W.all) {
-    /* One court at a time, each choosing from everyone still free. */
+  if ((W && W.all) || count > 2) {
+    /* One court at a time, each choosing from everyone still free. Too many players to plan together. */
     const left = pool.slice(),
       out = [];
     for (let i = 0; i < count; i++) {
@@ -294,6 +294,9 @@ function summarize(S) {
 /* ---------- making matches ---------- */
 /* Gives every open court without a match its next one. Uses only free players, so nobody is
    ever in two matches. Returns the matches that were made. */
+/* Most courts one session can run. */
+const MAX_COURTS = 5;
+
 function fill(S, mode) {
   if (S.finished) return [];
   const slots = [];
@@ -326,7 +329,7 @@ function fill(S, mode) {
 }
 
 function newSession(cfg, names) {
-  const want = Math.min(Math.max(1, cfg.courts | 0 || 1), 2);
+  const want = Math.min(Math.max(1, cfg.courts | 0 || 1), MAX_COURTS);
   const labels = (cfg.labels || []).slice(0, want);
   const S = {
     id: newSessionId(),
