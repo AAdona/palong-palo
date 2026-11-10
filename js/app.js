@@ -1123,6 +1123,7 @@ function menuSheet() {
     (Sound.enabled ? 'On' : 'Off') +
     '</button></div></div>' +
     '<div class="menu"><button class="btn" data-act="open-courts">Court numbers</button>' +
+    (S.courts.length < MAX_COURTS && !S.finished ? '<button class="btn" data-act="add-court">Add a court</button>' : '') +
     '<button class="btn" data-act="open-history">Saved results and backup</button>' +
     '<button class="btn" data-act="setup">Back to setup</button>' +
     (S.finished
@@ -1149,7 +1150,10 @@ function courtsSheet() {
         S.courts.length,
       ) +
       '</div><button class="btn primary" type="submit">Save</button></form>' +
-      '<p class="note">Numbers only, 1 to 99. Each court needs its own number.</p>',
+      '<p class="note">Numbers only, 1 to 99. Each court needs its own number.</p>' +
+      (S.courts.length < MAX_COURTS && !S.finished
+        ? '<button class="btn" data-act="add-court">Add a court (' + S.courts.length + ' of ' + MAX_COURTS + ' now)</button>'
+        : ''),
   );
 }
 
@@ -1769,6 +1773,12 @@ function onAction(act, el) {
       break;
     case 'players':
       openSheet({ type: 'players' }, el);
+      break;
+    case 'add-court':
+      mutate(
+        () => addCourt(S),
+        () => 'Court ' + courtLabel(S, S.courts.length) + ' added. Change its number from Court numbers.',
+      );
       break;
     case 'open-courts':
       openSheet({ type: 'courts' }, el);

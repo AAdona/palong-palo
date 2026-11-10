@@ -529,3 +529,18 @@ test('up to five courts run at once without anyone double-booked', () => {
     assert.equal(new Set(busy).size, busy.length);
   }
 });
+
+test('a court can be added mid-session and gets a match', () => {
+  const E2 = require('../js/engine.js');
+  const names = Array.from({ length: 12 }, (_, i) => 'P' + i);
+  const S = E2.newSession({ courts: 1, labels: ['5'] }, names);
+  assert.equal(S.matches.length, 1);
+  assert.equal(E2.addCourt(S), true);
+  assert.equal(S.courts.length, 2);
+  assert.equal(S.courts[1].label, '6');
+  assert.equal(S.matches.filter((m) => !m.done).length, 2);
+  const all = S.matches.flatMap((m) => [...m.a, ...m.b]);
+  assert.equal(new Set(all).size, all.length);
+  while (S.courts.length < 5) E2.addCourt(S);
+  assert.equal(E2.addCourt(S), false);
+});

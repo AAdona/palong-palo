@@ -533,6 +533,17 @@ function replacePlayed(S, id, from, to) {
   fill(S);
   return true;
 }
+/* Opens another court mid-session. It is numbered one above the highest number in use, and
+   gets a match straight away if enough players are free. */
+function addCourt(S) {
+  if (S.courts.length >= MAX_COURTS) return false;
+  const used = S.courts.map((c) => +c.label).filter((n) => n >= 1);
+  let n = Math.min(Math.max(0, ...used) + 1, 99);
+  while (S.courts.some((c) => c.label === String(n)) && n > 1) n--;
+  S.courts.push({ label: String(n), open: true });
+  fill(S);
+  return true;
+}
 /* Takes someone off for the rest of the day. If they are in a match that has not started,
    a free player steps in, or the match is dropped and made again. A match already on court
    is left to finish. */
@@ -637,6 +648,7 @@ if (typeof module !== 'undefined')
     fill,
     reroll,
     finishSession,
+    addCourt,
     resumeSession,
     wrapUp,
     startMatch,
