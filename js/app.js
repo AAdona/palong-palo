@@ -1185,11 +1185,48 @@ function rosterSheet(sh) {
   return sheetShell(
     'Players list',
     'Add a guest, rename or remove someone',
-    '<form id="f-roster" class="addrow"><input id="rname" type="text" placeholder="Name" autocomplete="off" aria-label="New player name" maxlength="20"><button class="btn primary" type="submit">Add</button></form><div>' +
+    '<form id="f-roster" class="addrow"><input id="rname" type="text" placeholder="Name" autocomplete="off" aria-label="New player name" maxlength="20"><button class="btn primary" type="submit">Add</button></form>' +
+      (App.view === 'setup' || !App.S
+        ? '<button class="btn" data-act="open-paste">Paste a list from chat</button>'
+        : '') +
+      '<div>' +
       rows +
       '</div>' +
       '<p class="note">Renaming also updates the current schedule and your saved results.</p>',
   );
+}
+
+function pasteSheet() {
+  return sheetShell(
+    'Paste a player list',
+    'Copy the list from your group chat',
+    '<textarea id="pastebox" class="pastebox" rows="8" placeholder="G palo monday&#10;8-11Pm&#10;&#10;1. Gelay&#10;2. Adi&#10;3. Maiky" aria-label="Pasted player list" autocapitalize="off" spellcheck="false"></textarea>' +
+      '<div id="pastepreview" class="pastepreview" aria-live="polite"></div>' +
+      '<label class="checkrow"><input type="checkbox" id="pasteonly" checked><span>Unpick everyone who is not on the list</span></label>' +
+      '<button class="btn primary" id="pasteadd" data-act="paste-add" disabled>Add players</button>' +
+      '<p class="note">Only numbered lines are read, so the title and time are skipped. Names are capitalized and anyone already on your list is not added twice.</p>',
+  );
+}
+
+function pastePreview() {
+  const box = document.getElementById('pastebox');
+  if (!box) return;
+  const names = parseNames(box.value),
+    known = names.filter((n) => App.roster.some((r) => r.toLowerCase() === n.toLowerCase())).length,
+    prev = document.getElementById('pastepreview'),
+    btn = document.getElementById('pasteadd');
+  prev.innerHTML = names.length
+    ? '<b>' +
+      names.length +
+      (names.length === 1 ? ' name' : ' names') +
+      ' found</b>' +
+      (known ? ', ' + known + ' already on your list' : '') +
+      '<div class="chips">' +
+      names.map((n) => '<span class="pchip static">' + esc(n) + '</span>').join('') +
+      '</div>'
+    : '<span class="note">Paste the list above and the names show here.</span>';
+  btn.disabled = !names.length;
+  btn.textContent = names.length ? 'Add and pick ' + names.length + (names.length === 1 ? ' player' : ' players') : 'Add players';
 }
 
 function historySheet() {
@@ -1285,6 +1322,7 @@ function sheetHTML() {
   if (!sh) return '';
   if (sh.type === 'change') return changeSheet(sh);
   if (sh.type === 'result') return resultSheet(sh);
+  if (sh.type === 'paste') return pasteSheet();
   if (sh.type === 'pdetail') return playerDetailSheet(sh);
   if (sh.type === 'fix') return fixSheet(sh);
   if (sh.type === 'players') return playersSheet();
@@ -1780,6 +1818,25 @@ function onAction(act, el) {
         () => 'Court ' + courtLabel(S, S.courts.length) + ' added. Change its number from Court numbers.',
       );
       break;
+    case 'open-paste':
+      openSheet({ type: 'paste' }, el);
+      break;
+    case 'paste-add': {
+      const box = document.getElementById('pastebox'),
+        only = document.getElementById('pasteonly');
+      const names = parseNames(box ? box.value : '').map(
+        (n) => App.roster.find((r) => r.toLowerCase() === n.toLowerCase()) || n,
+      );
+      if (!names.length) break;
+      const fresh = names.filter((n) => !App.roster.includes(n));
+      App.roster.push(...fresh);
+      if (only && only.checked) App.picked = new Set(names);
+      else names.forEach((n) => App.picked.add(n));
+      save();
+      closeSheet();
+      showToast(names.length + ' picked' + (fresh.length ? ', ' + fresh.length + ' new' : '') + '.', false);
+      break;
+    }
     case 'open-courts':
       openSheet({ type: 'courts' }, el);
       break;
@@ -2031,6 +2088,7 @@ $app.addEventListener('click', (e) => {
 });
 /* Court numbers: digits only while typing, and each court needs its own number. */
 $app.addEventListener('input', (e) => {
+  if (e.target.id === 'pastebox') pastePreview();
   if (/^(cn|sc)\d$/.test(e.target.id || '')) e.target.value = e.target.value.replace(/\D/g, '').slice(0, 2);
 });
 $app.addEventListener('change', (e) => {
@@ -2052,7 +2110,7 @@ $app.addEventListener('submit', (e) => {
   e.preventDefault();
   if (e.target.id === 'f-roster') {
     const inp = document.getElementById('rname'),
-      name = inp.value.trim();
+      name = capName(inp.value);
     if (!name) return;
     if (!App.roster.some((n) => n.toLowerCase() === name.toLowerCase())) {
       App.roster.push(name);
@@ -2064,7 +2122,7 @@ $app.addEventListener('submit', (e) => {
     if (again) again.focus();
   } else if (e.target.id === 'f-rename') {
     const from = e.target.dataset.from,
-      to = document.getElementById('renameinp').value.trim().replace(/\s+/g, ' ');
+      to = capName(document.getElementById('renameinp').value);
     if (to === from) {
       App.sheet.editing = null;
       render();
@@ -2096,7 +2154,7 @@ $app.addEventListener('submit', (e) => {
     showToast('Court numbers saved.', false);
   } else if (e.target.id === 'f-late') {
     const inp = document.getElementById('latename'),
-      name = inp.value.trim();
+      name = capName(inp.value);
     if (!name) return;
     const S = App.S,
       known = allNames(S).find((n) => n.toLowerCase() === name.toLowerCase());

@@ -544,3 +544,29 @@ test('a court can be added mid-session and gets a match', () => {
   while (S.courts.length < 5) E2.addCourt(S);
   assert.equal(E2.addCourt(S), false);
 });
+
+test('parseNames reads a pasted chat list and capitalizes names', () => {
+  const E2 = require('../js/engine.js');
+  const text = `G palo monday
+8-11Pm
+
+1.Gelay
+2.Adi
+3.Maiky
+4.Bajeng
+5.Peton
+10. Tan tan
+11. zach
+12) marky
+13 Tokki
+14. Adrian 🏸
+15. Rona (late)
+16. Art
+17. Gelay
+
+Padagdag na lang sa mag G pa. Thank you!`;
+  assert.deepEqual(E2.parseNames(text), ['Gelay', 'Adi', 'Maiky', 'Bajeng', 'Peton', 'Tan Tan', 'Zach', 'Marky', 'Tokki', 'Adrian', 'Rona', 'Art']);
+  assert.deepEqual(E2.parseNames('ann, bob\ncy'), ['Ann', 'Bob', 'Cy']);
+  assert.equal(E2.capName("  mc'donald  o neil "), "Mc'Donald O Neil");
+  assert.deepEqual(E2.parseNames(''), []);
+});

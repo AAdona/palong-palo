@@ -6,7 +6,8 @@ Installable on an iPhone or Android home screen and works offline after the firs
 
 ## Features
 
-- **Roster:** tap to pick who is attending, add guests, remove names.
+- **Roster:** tap to pick who is attending, add guests, remove names. Names are capitalized for you, so "tan tan" becomes "Tan Tan".
+- **Paste a list:** on the setup screen, tap the + chip, then **Paste a list from chat**. Paste a numbered list like "1. Gelay" and the names are picked out (titles, times and notes are skipped). It adds new names, picks everyone on the list and, if you leave the box ticked, unpicks everyone else.
 - **Courts:** 1 to 5 courts. Name them with the numbers painted on your courts, like 5 and 6. Numbers only, 1 to 99, each court its own. You can change them, and add another court (up to 5), mid-session from the ⋯ menu. A new court gets a match right away if enough players are free.
 - **Live matches, no future rounds:** only the matches on court are shown. When a court finishes, only that court gets a new match, made from players who are not on any court right now. The other courts keep playing untouched.
 - **Shuttlecock:** while a game is playing, a shuttlecock flies back and forth over its court. Each flight lands on a random spot on the far side, with a small shadow on the floor. It sits still if the phone is set to reduce motion.

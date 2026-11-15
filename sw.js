@@ -1,5 +1,5 @@
 /* Service worker: network first, cache fallback. Bump VERSION to force a fresh cache. */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE = 'palong-palo-' + VERSION;
 const SHELL = [
   '/',

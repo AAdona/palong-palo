@@ -358,6 +358,38 @@ function reroll(S, mode) {
   return fill(S, mode);
 }
 
+/* ---------- names ---------- */
+/* First letter of every word in capitals, the rest as typed: "tan tan" becomes "Tan Tan". */
+function capName(raw) {
+  return String(raw == null ? '' : raw)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/(^|[\s\-'])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+}
+/* Pulls player names out of a pasted chat list like "1. Gelay". Lines without a number, such as a
+   title or the time, are skipped. With no numbered lines at all, each line or comma-separated item is a name. */
+function parseNames(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const numbered = [];
+  lines.forEach((l) => {
+    const m = /^\s*\d{1,3}\s*[.)\-:]\s*(\p{L}.*)$/u.exec(l) || /^\s*\d{1,3}\s+(\p{L}.*)$/u.exec(l);
+    if (m) numbered.push(m[1]);
+  });
+  const raw = numbered.length
+    ? numbered
+    : lines.flatMap((l) => l.split(',')).filter((l) => /^\s*\p{L}/u.test(l));
+  const seen = new Set(),
+    out = [];
+  raw.forEach((r) => {
+    const name = capName(r.replace(/\([^)]*\)/g, '').replace(/[^\p{L}\p{N} .'\-]/gu, '')).slice(0, 20).trim();
+    if (name && !seen.has(name.toLowerCase())) {
+      seen.add(name.toLowerCase());
+      out.push(name);
+    }
+  });
+  return out;
+}
+
 /* ---------- finishing ---------- */
 /* Ends the session. Matches that are only up next are dropped, games on court stay so their
    winners can still be picked. No new matches are made until the session is resumed. */
@@ -648,6 +680,8 @@ if (typeof module !== 'undefined')
     fill,
     reroll,
     finishSession,
+    capName,
+    parseNames,
     addCourt,
     resumeSession,
     wrapUp,
