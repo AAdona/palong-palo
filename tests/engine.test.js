@@ -510,3 +510,63 @@ test('finishing drops matches up next, keeps games on court, and stops new match
   assert.equal(S.finished, null);
   assert.equal(S.matches.length, 2);
 });
+
+test('up to five courts run at once without anyone double-booked', () => {
+  const E2 = require('../js/engine.js');
+  const names = Array.from({ length: 22 }, (_, i) => 'P' + i);
+  const S = E2.newSession({ courts: 5, labels: ['1', '2', '3', '4', '5'] }, names);
+  assert.equal(S.courts.length, 5);
+  assert.equal(S.matches.length, 5);
+  const all = S.matches.flatMap((m) => [...m.a, ...m.b]);
+  assert.equal(new Set(all).size, 20);
+  assert.equal(E2.newSession({ courts: 9, labels: [] }, names).courts.length, 5);
+  for (let i = 0; i < 25; i++) {
+    const m = S.matches.filter((x) => !x.done)[i % 5];
+    E2.startMatch(S, m.id);
+    E2.setResult(S, m.id, 'a');
+    E2.fill(S);
+    const busy = S.matches.filter((x) => !x.done).flatMap((x) => [...x.a, ...x.b]);
+    assert.equal(new Set(busy).size, busy.length);
+  }
+});
+
+test('a court can be added mid-session and gets a match', () => {
+  const E2 = require('../js/engine.js');
+  const names = Array.from({ length: 12 }, (_, i) => 'P' + i);
+  const S = E2.newSession({ courts: 1, labels: ['5'] }, names);
+  assert.equal(S.matches.length, 1);
+  assert.equal(E2.addCourt(S), true);
+  assert.equal(S.courts.length, 2);
+  assert.equal(S.courts[1].label, '6');
+  assert.equal(S.matches.filter((m) => !m.done).length, 2);
+  const all = S.matches.flatMap((m) => [...m.a, ...m.b]);
+  assert.equal(new Set(all).size, all.length);
+  while (S.courts.length < 5) E2.addCourt(S);
+  assert.equal(E2.addCourt(S), false);
+});
+
+test('parseNames reads a pasted chat list and capitalizes names', () => {
+  const E2 = require('../js/engine.js');
+  const text = `G palo monday
+8-11Pm
+
+1.Gelay
+2.Adi
+3.Maiky
+4.Bajeng
+5.Peton
+10. Tan tan
+11. zach
+12) marky
+13 Tokki
+14. Adrian 🏸
+15. Rona (late)
+16. Art
+17. Gelay
+
+Padagdag na lang sa mag G pa. Thank you!`;
+  assert.deepEqual(E2.parseNames(text), ['Gelay', 'Adi', 'Maiky', 'Bajeng', 'Peton', 'Tan Tan', 'Zach', 'Marky', 'Tokki', 'Adrian', 'Rona', 'Art']);
+  assert.deepEqual(E2.parseNames('ann, bob\ncy'), ['Ann', 'Bob', 'Cy']);
+  assert.equal(E2.capName("  mc'donald  o neil "), "Mc'Donald O Neil");
+  assert.deepEqual(E2.parseNames(''), []);
+});

@@ -7,7 +7,7 @@
    { id, created, active: [names], left: [names marked out], baseline: {}, seq: 0,
      courts: [{ label: '5', open: true }],
      matches: [{ id, n, c, a: [x, y], b: [x, y], started, done, winner, startedAt, doneAt }] }
-   `c` is the court slot (1 or 2). The number painted on the court is courts[c - 1].label.
+   `c` is the court slot (1 to 5). The number painted on the court is courts[c - 1].label.
    A match is "up next" until it is started, then "playing now", then done. */
 
 /* How much a repeat costs. `balanced` spreads teammates first, then opponents. `random` ignores who has played
@@ -184,8 +184,8 @@ function pickOne(S, pool, st, nextN, rnd, W) {
 
 /* Several matches at once, used when more than one court is empty. */
 function pickMany(S, pool, st, nextN, rnd, W, count) {
-  if (W && W.all) {
-    /* One court at a time, each choosing from everyone still free. */
+  if ((W && W.all) || count > 2) {
+    /* One court at a time, each choosing from everyone still free. Too many players to plan together. */
     const left = pool.slice(),
       out = [];
     for (let i = 0; i < count; i++) {
@@ -294,6 +294,9 @@ function summarize(S) {
 /* ---------- making matches ---------- */
 /* Gives every open court without a match its next one. Uses only free players, so nobody is
    ever in two matches. Returns the matches that were made. */
+/* Most courts one session can run. */
+const MAX_COURTS = 5;
+
 function fill(S, mode) {
   if (S.finished) return [];
   const slots = [];
@@ -326,7 +329,7 @@ function fill(S, mode) {
 }
 
 function newSession(cfg, names) {
-  const want = Math.min(Math.max(1, cfg.courts | 0 || 1), 2);
+  const want = Math.min(Math.max(1, cfg.courts | 0 || 1), MAX_COURTS);
   const labels = (cfg.labels || []).slice(0, want);
   const S = {
     id: newSessionId(),
@@ -353,6 +356,38 @@ function reroll(S, mode) {
   S.mode = mode === 'partners' ? 'partners' : null;
   S.matches = S.matches.filter((m) => m.done || m.started);
   return fill(S, mode);
+}
+
+/* ---------- names ---------- */
+/* First letter of every word in capitals, the rest as typed: "tan tan" becomes "Tan Tan". */
+function capName(raw) {
+  return String(raw == null ? '' : raw)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/(^|[\s\-'])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+}
+/* Pulls player names out of a pasted chat list like "1. Gelay". Lines without a number, such as a
+   title or the time, are skipped. With no numbered lines at all, each line or comma-separated item is a name. */
+function parseNames(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const numbered = [];
+  lines.forEach((l) => {
+    const m = /^\s*\d{1,3}\s*[.)\-:]\s*(\p{L}.*)$/u.exec(l) || /^\s*\d{1,3}\s+(\p{L}.*)$/u.exec(l);
+    if (m) numbered.push(m[1]);
+  });
+  const raw = numbered.length
+    ? numbered
+    : lines.flatMap((l) => l.split(',')).filter((l) => /^\s*\p{L}/u.test(l));
+  const seen = new Set(),
+    out = [];
+  raw.forEach((r) => {
+    const name = capName(r.replace(/\([^)]*\)/g, '').replace(/[^\p{L}\p{N} .'\-]/gu, '')).slice(0, 20).trim();
+    if (name && !seen.has(name.toLowerCase())) {
+      seen.add(name.toLowerCase());
+      out.push(name);
+    }
+  });
+  return out;
 }
 
 /* ---------- finishing ---------- */
@@ -530,6 +565,17 @@ function replacePlayed(S, id, from, to) {
   fill(S);
   return true;
 }
+/* Opens another court mid-session. It is numbered one above the highest number in use, and
+   gets a match straight away if enough players are free. */
+function addCourt(S) {
+  if (S.courts.length >= MAX_COURTS) return false;
+  const used = S.courts.map((c) => +c.label).filter((n) => n >= 1);
+  let n = Math.min(Math.max(0, ...used) + 1, 99);
+  while (S.courts.some((c) => c.label === String(n)) && n > 1) n--;
+  S.courts.push({ label: String(n), open: true });
+  fill(S);
+  return true;
+}
 /* Takes someone off for the rest of the day. If they are in a match that has not started,
    a free player steps in, or the match is dropped and made again. A match already on court
    is left to finish. */
@@ -634,6 +680,9 @@ if (typeof module !== 'undefined')
     fill,
     reroll,
     finishSession,
+    capName,
+    parseNames,
+    addCourt,
     resumeSession,
     wrapUp,
     startMatch,
