@@ -347,9 +347,9 @@ function setupHTML() {
     '</div></div>' +
     '</div>' +
     sum +
-    '<button class="btn quiet histlink" data-act="open-history">' +
-    I.stats +
-    'Saved results and backup</button>' +
+    (Archive.computeStats(Archive.allSessions(App.history, App.S)).matches
+      ? '<button class="btn quiet histlink" data-act="open-history">' + I.stats + 'Saved results and backup</button>'
+      : '<button class="btn quiet histlink" data-act="import">Import backup</button>') +
     '</main>' +
     '<footer class="foot"><button class="btn primary" data-act="generate"' +
     (!ok || App.busy ? ' disabled' : '') +
@@ -1229,6 +1229,9 @@ function pastePreview() {
   btn.textContent = names.length ? 'Add and pick ' + names.length + (names.length === 1 ? ' player' : ' players') : 'Add players';
 }
 
+/* Games a player needs on record before they show in the all-time ranking. */
+const MIN_RANKED_GAMES = 5;
+
 function historySheet() {
   const all = Archive.allSessions(App.history, App.S);
   const st = Archive.computeStats(all);
@@ -1239,7 +1242,10 @@ function historySheet() {
   } else {
     let place = 0,
       prev = null;
-    const rows = st.players
+    /* Only players with enough recorded games are ranked, so a lucky 1-0 does not top the list. */
+    const ranked = st.players.filter((p) => p.w + p.l >= MIN_RANKED_GAMES),
+      hidden = st.players.length - ranked.length;
+    const rows = ranked
       .map((p, i) => {
         const key = p.w + '-' + p.l;
         if (key !== prev) {
@@ -1276,9 +1282,13 @@ function historySheet() {
           st.bestDuo.g +
           ' games together</small></div></div>'
         : '') +
-      '<div class="group"><h3>All-time wins and losses</h3><div class="rank" role="table" aria-label="All-time results">' +
-      rows +
-      '</div>' +
+      '<div class="group"><h3>All-time wins and losses</h3>' +
+      (rows
+        ? '<div class="rank" role="table" aria-label="All-time results">' + rows + '</div>'
+        : '<p class="note">Nobody has ' + MIN_RANKED_GAMES + ' recorded games yet.</p>') +
+      (hidden
+        ? '<p class="note">' + hidden + (hidden === 1 ? ' player is' : ' players are') + ' not shown yet. Players need ' + MIN_RANKED_GAMES + ' recorded games to be ranked.</p>'
+        : '') +
       (App.S && Archive.compactSession(App.S)
         ? '<p class="note">Includes the session in progress.</p>'
         : '') +
