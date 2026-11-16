@@ -24,7 +24,7 @@ Installable on an iPhone or Android home screen and works offline after the firs
 - **Start game:** a match is "Up next" until you press **Start game**. Then it shows "Playing now" and is kept in place if you shuffle. Undo is in the toast.
 - **Fix who played:** tap a player on a game that is playing now, or open a finished game from Played and tap Someone else played. Pick who really played. Games, wins and saved results follow the change.
 - **Results:** pick the winning team once a game is started. No scores are tracked. A winner can be cleared while its court has not moved on.
-- **Saved results:** logged winners are kept when you start a new session. **Saved results and backup** (on the setup screen and in the ⋯ menu) shows all-time wins, losses, win rate and the best duo.
+- **Saved results:** logged winners are kept when you start a new session. **Saved results and backup** (on the setup screen and in the ⋯ menu) shows all-time wins, losses, win rate and the best duo. Only players with 5 or more recorded games are ranked. With no saved results yet, the setup screen shows just an **Import backup** link.
 - **Backup and import:** save all results to a `.json` file, and import it on the same or another phone. Importing adds new sessions and skips ones already saved, so importing twice is safe.
 - **Rename players:** in the players list (Add on the setup screen, or Players in a session). A rename updates the roster, the current session and saved results.
 - **Standings:** wins and losses for the session, with who is leading.
